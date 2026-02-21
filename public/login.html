@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="hy">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Вход — Media Storage</title>
+    <title>Մուտք — Media Storage</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -119,13 +119,13 @@
                 <span>Media Storage</span>
             </div>
             <form id="loginForm">
-                <div class="login-error" id="loginError">Неверный пароль</div>
+                <div class="login-error" id="loginError">Սխալ գաղտնաբառ</div>
                 <div class="login-field">
-                    <label for="password">Пароль</label>
-                    <input type="password" id="password" name="password" placeholder="Введите пароль" autofocus
+                    <label for="password">Գաղտնաբառ</label>
+                    <input type="password" id="password" name="password" placeholder="Մուտքագրեք գաղտնաբառը" autofocus
                         required>
                 </div>
-                <button type="submit" class="login-submit">Войти</button>
+                <button type="submit" class="login-submit">Մուտք</button>
             </form>
         </div>
     </div>
@@ -152,7 +152,7 @@
                     document.getElementById('password').focus();
                 }
             } catch {
-                errorEl.textContent = 'Ошибка сети';
+                errorEl.textContent = 'Ցանցի սխալ';
                 errorEl.style.display = 'block';
             }
         });

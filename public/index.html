@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="hy">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Media Storage — Видео хранилище</title>
-  <meta name="description" content="Простое хранилище видео файлов с онлайн-воспроизведением и публичными ссылками">
+  <title>Media Storage — Վիդեո պահոց</title>
+  <meta name="description" content="Վիդեո ֆայլերի պարզ պահոց առցանց նվագարկմամբ և հանրային հղումներով">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -25,7 +25,7 @@
           <span class="logo-text">Media Storage</span>
         </div>
         <div class="header-stats" id="headerStats"></div>
-        <button class="icon-btn" onclick="logout()" title="Выйти" style="margin-left: 12px;">
+        <button class="icon-btn" onclick="logout()" title="Դուրս գալ" style="margin-left: 12px;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
             <polyline points="16 17 21 12 16 7" />
@@ -45,24 +45,24 @@
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
         </div>
-        <p class="upload-text">Перетащите видео файлы сюда</p>
-        <p class="upload-subtext">или</p>
+        <p class="upload-text">Քաշեք և գցեք վիդեո ֆայլերն այստեղ</p>
+        <p class="upload-subtext">կամ</p>
         <label class="upload-btn" for="fileInput">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
-          Выбрать файлы
+          Ընտրել ֆայլեր
         </label>
         <input type="file" id="fileInput" multiple accept="video/*" hidden>
-        <p class="upload-hint">Видео файлы до 2 ГБ • До 50 файлов за раз</p>
+        <p class="upload-hint">Վիդեո ֆայլեր մինչև 2 ԳԲ • Մինչև 50 ֆայլ միաժամանակ</p>
       </div>
 
       <!-- Progress Bar -->
       <div class="progress-container" id="progressContainer" style="display: none;">
         <div class="progress-info">
-          <span id="progressText">Загрузка...</span>
+          <span id="progressText">Բեռնվում է...</span>
           <span id="progressPercent">0%</span>
         </div>
         <div class="progress-bar">
@@ -74,7 +74,7 @@
     <!-- Video Grid -->
     <section class="videos-section">
       <div class="videos-header">
-        <h2 class="videos-title">Мои видео</h2>
+        <h2 class="videos-title">Իմ վիդեոները</h2>
         <div class="videos-count" id="videosCount"></div>
       </div>
       <div class="videos-grid" id="videosGrid">
@@ -85,8 +85,8 @@
           <polygon points="23 7 16 12 23 17 23 7" />
           <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
         </svg>
-        <p>Нет загруженных видео</p>
-        <span>Перетащите файлы в область выше или нажмите «Выбрать файлы»</span>
+        <p>Ներբեռնված վիդեոներ չկան</p>
+        <span>Քաշեք ֆայլերը վերևի դաշտ կամ սեղմեք «Ընտրել ֆայլեր»</span>
       </div>
     </section>
   </div>
@@ -94,11 +94,11 @@
   <!-- Rename Modal -->
   <div class="modal-overlay" id="renameModal" style="display: none;">
     <div class="modal">
-      <h3>Переименовать</h3>
-      <input type="text" class="modal-input" id="renameInput" placeholder="Новое название">
+      <h3>Անվանափոխել</h3>
+      <input type="text" class="modal-input" id="renameInput" placeholder="Նոր անվանում">
       <div class="modal-actions">
-        <button class="modal-btn modal-btn-cancel" onclick="closeRenameModal()">Отмена</button>
-        <button class="modal-btn modal-btn-confirm" onclick="confirmRename()">Сохранить</button>
+        <button class="modal-btn modal-btn-cancel" onclick="closeRenameModal()">Չեղարկել</button>
+        <button class="modal-btn modal-btn-confirm" onclick="confirmRename()">Պահպանել</button>
       </div>
     </div>
   </div>

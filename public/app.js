@@ -46,7 +46,7 @@ if (uploadZone) {
     uploadZone.addEventListener('drop', (e) => {
         const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('video/'));
         if (files.length > 0) uploadFiles(files);
-        else showToast('Допускаются только видео файлы', 'error');
+        else showToast('Թույլատրվում են միայն վիդեո ֆայլեր', 'error');
     });
 
     // Клик на зону загрузки тоже открывает выбор файлов
@@ -72,28 +72,28 @@ function uploadFiles(files) {
 
     // Показать прогресс
     progressContainer.style.display = 'block';
-    progressText.textContent = `Загрузка ${files.length} файл(ов)...`;
+    progressText.textContent = `Բեռնվում է ${files.length} ֆայլ...`;
 
     xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
             const percent = Math.round((e.loaded / e.total) * 100);
             progressFill.style.width = percent + '%';
             progressPercent.textContent = percent + '%';
-            progressText.textContent = `Загрузка ${files.length} файл(ов)... (${formatSize(e.loaded)} / ${formatSize(e.total)})`;
+            progressText.textContent = `Բեռնվում է ${files.length} ֆայլ... (${formatSize(e.loaded)} / ${formatSize(e.total)})`;
         }
     });
 
     xhr.addEventListener('load', () => {
         if (xhr.status === 200) {
             const data = JSON.parse(xhr.responseText);
-            showToast(`Загружено файлов: ${data.uploaded.length}`);
+            showToast(`Բեռնվել է ${data.uploaded.length} ֆայլ`);
             loadVideos();
         } else {
             try {
                 const err = JSON.parse(xhr.responseText);
-                showToast(err.error || 'Ошибка загрузки', 'error');
+                showToast(err.error || 'Բեռնման սխալ', 'error');
             } catch {
-                showToast('Ошибка загрузки', 'error');
+                showToast('Բեռնման սխալ', 'error');
             }
         }
 
@@ -107,7 +107,7 @@ function uploadFiles(files) {
     });
 
     xhr.addEventListener('error', () => {
-        showToast('Ошибка сети', 'error');
+        showToast('Ցանցի սխալ', 'error');
         progressContainer.style.display = 'none';
         fileInput.value = '';
     });
@@ -140,13 +140,13 @@ async function loadVideos() {
 
         videosGrid.style.display = 'grid';
         emptyState.style.display = 'none';
-        videosCount.textContent = `${videos.length} видео`;
+        videosCount.textContent = `${videos.length} վիդեո`;
 
         // Статистика в хедере
         const totalSize = videos.reduce((sum, v) => sum + v.size, 0);
         if (headerStats) {
             headerStats.innerHTML = `
-        <span>${videos.length} файлов</span>
+        <span>${videos.length} ֆայլ</span>
         <span>${formatSize(totalSize)}</span>
       `;
         }
@@ -164,26 +164,26 @@ async function loadVideos() {
           <div class="video-name" title="${escapeHtml(video.filename)}">${escapeHtml(video.filename)}</div>
           <div class="video-meta">
             <span>${formatSize(video.size)}</span>
-            <span>${new Date(video.created_at).toLocaleDateString('ru-RU')}</span>
+            <span>${new Date(video.created_at).toLocaleDateString('hy-AM')}</span>
           </div>
         </div>
         <div class="video-actions">
-          <button class="icon-btn ${video.share_id ? 'shared' : ''}" onclick="toggleShare(${video.id})" title="${video.share_id ? 'Убрать ссылку' : 'Поделиться'}">
+          <button class="icon-btn ${video.share_id ? 'shared' : ''}" onclick="toggleShare(${video.id})" title="${video.share_id ? 'Հեռացնել հղումը' : 'Կիսվել'}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
             </svg>
-            ${video.share_id ? 'Ссылка' : 'Поделиться'}
+            ${video.share_id ? 'Հղում' : 'Կիսվել'}
           </button>
-          <button class="icon-btn" onclick="openRenameModal(${video.id}, '${escapeJs(video.filename)}')" title="Переименовать">
+          <button class="icon-btn" onclick="openRenameModal(${video.id}, '${escapeJs(video.filename)}')" title="Անվանափոխել">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
           </button>
           <div class="btn-spacer"></div>
-          <button class="icon-btn danger" onclick="deleteVideo(${video.id}, '${escapeJs(video.filename)}')" title="Удалить">
+          <button class="icon-btn danger" onclick="deleteVideo(${video.id}, '${escapeJs(video.filename)}')" title="Ջնջել">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <polyline points="3 6 5 6 21 6"/>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -194,7 +194,7 @@ async function loadVideos() {
     `).join('');
 
     } catch (err) {
-        console.error('Ошибка загрузки списка:', err);
+        console.error('Ցուցակի բեռնման սխալ.', err);
     }
 }
 
@@ -214,34 +214,34 @@ async function toggleShare(id) {
             const url = window.location.origin + '/s/' + data.share_id;
             try {
                 await navigator.clipboard.writeText(url);
-                showToast('Ссылка скопирована в буфер обмена!');
+                showToast('Հղումը պատճենվեց սեղմատախտակի մեջ։');
             } catch {
                 // Fallback: показать ссылку
-                prompt('Публичная ссылка:', url);
+                prompt('Հանրային հղում․', url);
             }
         } else {
-            showToast('Публичная ссылка удалена');
+            showToast('Հանրային հղումը հեռացված է');
         }
 
         loadVideos();
     } catch (err) {
-        showToast('Ошибка', 'error');
+        showToast('Սխալ', 'error');
     }
 }
 
 async function deleteVideo(id, filename) {
-    if (!confirm(`Удалить "${filename}"?`)) return;
+    if (!confirm(`Ջնջե՞լ "${filename}"։`)) return;
 
     try {
         const res = await fetch(`/api/videos/${id}`, { method: 'DELETE' });
         if (res.ok) {
-            showToast('Видео удалено');
+            showToast('Վիդեոն ջնջված է');
             loadVideos();
         } else {
-            showToast('Ошибка удаления', 'error');
+            showToast('Ջնջման սխալ', 'error');
         }
     } catch (err) {
-        showToast('Ошибка сети', 'error');
+        showToast('Ցանցի սխալ', 'error');
     }
 }
 
@@ -270,7 +270,7 @@ async function confirmRename() {
     const newName = input.value.trim();
 
     if (!newName) {
-        showToast('Имя не может быть пустым', 'error');
+        showToast('Անունը չի կարող դատարկ լինել', 'error');
         return;
     }
 
@@ -282,14 +282,14 @@ async function confirmRename() {
         });
 
         if (res.ok) {
-            showToast('Переименовано');
+            showToast('Անվանափոխված է');
             closeRenameModal();
             loadVideos();
         } else {
-            showToast('Ошибка', 'error');
+            showToast('Սխալ', 'error');
         }
     } catch (err) {
-        showToast('Ошибка сети', 'error');
+        showToast('Ցանցի սխալ', 'error');
     }
 }
 

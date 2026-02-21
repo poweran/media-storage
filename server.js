@@ -64,7 +64,7 @@ const fileFilter = (req, file, cb) => {
     if (file.mimetype.startsWith('video/')) {
         cb(null, true);
     } else {
-        cb(new Error('Допускаются только видео файлы'), false);
+        cb(new Error('Թույլատրվում են միայն վիդեո ֆայլեր'), false);
     }
 };
 
@@ -87,7 +87,7 @@ app.use((req, res, next) => {
 
     // Для API — 401, для страниц — редирект на логин
     if (req.path.startsWith('/api/')) {
-        return res.status(401).json({ error: 'Требуется авторизация' });
+        return res.status(401).json({ error: 'Պահանջվում է թույլտվություն' });
     }
     return res.redirect('/login.html?redirect=' + encodeURIComponent(req.originalUrl));
 });
@@ -109,7 +109,7 @@ app.post('/api/login', (req, res) => {
         });
         res.json({ success: true });
     } else {
-        res.status(401).json({ error: 'Неверный пароль' });
+        res.status(401).json({ error: 'Սխալ գաղտնաբառ' });
     }
 });
 
@@ -130,7 +130,7 @@ app.get('/api/videos', (req, res) => {
 // Массовая загрузка видео
 app.post('/api/upload', upload.array('files', 50), (req, res) => {
     if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ error: 'Файлы не выбраны' });
+        return res.status(400).json({ error: 'Ֆայլեր ընտրված չեն' });
     }
 
     const insert = db.prepare(`
@@ -162,7 +162,7 @@ app.post('/api/upload', upload.array('files', 50), (req, res) => {
         const results = insertMany(req.files);
         res.json({ uploaded: results });
     } catch (err) {
-        res.status(500).json({ error: 'Ошибка при сохранении' });
+        res.status(500).json({ error: 'Պահպանման սխալ' });
     }
 });
 
@@ -170,7 +170,7 @@ app.post('/api/upload', upload.array('files', 50), (req, res) => {
 app.delete('/api/videos/:id', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
     if (!video) {
-        return res.status(404).json({ error: 'Видео не найдено' });
+        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
     }
 
     // Удаляем файл с диска
@@ -191,14 +191,14 @@ app.delete('/api/videos/:id', (req, res) => {
 app.patch('/api/videos/:id', (req, res) => {
     const { filename } = req.body;
     if (!filename) {
-        return res.status(400).json({ error: 'Имя файла обязательно' });
+        return res.status(400).json({ error: 'Ֆայլի անունը պարտադիր է' });
     }
 
     const result = db.prepare('UPDATE videos SET filename = ? WHERE id = ?')
         .run(filename, req.params.id);
 
     if (result.changes === 0) {
-        return res.status(404).json({ error: 'Видео не найдено' });
+        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
     }
     res.json({ success: true });
 });
@@ -207,7 +207,7 @@ app.patch('/api/videos/:id', (req, res) => {
 app.post('/api/videos/:id/share', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
     if (!video) {
-        return res.status(404).json({ error: 'Видео не найдено' });
+        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
     }
 
     if (video.share_id) {
@@ -226,7 +226,7 @@ app.post('/api/videos/:id/share', (req, res) => {
 app.get('/api/stream/:id', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
     if (!video) {
-        return res.status(404).json({ error: 'Видео не найдено' });
+        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
     }
     streamVideo(res, req, video);
 });
@@ -235,7 +235,7 @@ app.get('/api/stream/:id', (req, res) => {
 app.get('/api/share/:shareId/stream', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE share_id = ?').get(req.params.shareId);
     if (!video) {
-        return res.status(404).json({ error: 'Видео не найдено' });
+        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
     }
     streamVideo(res, req, video);
 });
@@ -245,7 +245,7 @@ app.get('/api/share/:shareId', (req, res) => {
     const video = db.prepare('SELECT id, filename, size, mime_type, created_at FROM videos WHERE share_id = ?')
         .get(req.params.shareId);
     if (!video) {
-        return res.status(404).json({ error: 'Видео не найдено' });
+        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
     }
     res.json(video);
 });
@@ -254,7 +254,7 @@ app.get('/api/share/:shareId', (req, res) => {
 app.get('/s/:shareId', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE share_id = ?').get(req.params.shareId);
     if (!video) {
-        return res.status(404).send('Видео не найдено');
+        return res.status(404).send('Վիդեոն չի գտնվել');
     }
     res.sendFile(path.join(__dirname, 'public', 'share.html'));
 });
@@ -265,7 +265,7 @@ function streamVideo(res, req, video) {
     const filePath = path.join(uploadsDir, video.stored_name);
 
     if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ error: 'Файл не найден на диске' });
+        return res.status(404).json({ error: 'Ֆայլը սկավառակի վրա չի գտնվել' });
     }
 
     const stat = fs.statSync(filePath);
@@ -302,7 +302,7 @@ function streamVideo(res, req, video) {
 app.use((err, req, res, next) => {
     if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
-            return res.status(413).json({ error: 'Файл слишком большой (макс. 2 ГБ)' });
+            return res.status(413).json({ error: 'Ֆայլը չափազանց մեծ է (առավելագույնը 2 ԳԲ)' });
         }
         return res.status(400).json({ error: err.message });
     }

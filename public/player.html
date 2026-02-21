@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="hy">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Видеоплеер — Media Storage</title>
+    <title>Վիդեոնվագարկիչ — Media Storage</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -19,11 +19,11 @@
                     <line x1="19" y1="12" x2="5" y2="12" />
                     <polyline points="12 19 5 12 12 5" />
                 </svg>
-                Назад
+                Ետ
             </a>
-            <h1 class="player-title" id="playerTitle">Загрузка...</h1>
+            <h1 class="player-title" id="playerTitle">Բեռնվում է...</h1>
             <div class="player-actions">
-                <button class="icon-btn" id="shareBtn" title="Поделиться">
+                <button class="icon-btn" id="shareBtn" title="Կիսվել">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
                         <circle cx="18" cy="5" r="3" />
                         <circle cx="6" cy="12" r="3" />
@@ -37,7 +37,7 @@
 
         <main class="player-main">
             <video id="videoPlayer" controls autoplay>
-                Ваш браузер не поддерживает воспроизведение видео.
+                Ձեր դիտարկիչը չի աջակցում վիդեոյի նվագարկումը։
             </video>
         </main>
 
@@ -65,7 +65,7 @@
                     document.getElementById('videoPlayer').src = '/api/stream/' + id;
                     document.getElementById('playerInfo').innerHTML =
                         '<span>' + formatSize(video.size) + '</span>' +
-                        '<span>' + new Date(video.created_at).toLocaleDateString('ru-RU') + '</span>';
+                        '<span>' + new Date(video.created_at).toLocaleDateString('hy-AM') + '</span>';
                     document.title = video.filename + ' — Media Storage';
 
                     // Share button
@@ -75,9 +75,9 @@
                         if (data.share_id) {
                             const url = window.location.origin + '/s/' + data.share_id;
                             await navigator.clipboard.writeText(url);
-                            showToast('Ссылка скопирована!');
+                            showToast('Հղումը պատճենված է։');
                         } else {
-                            showToast('Публичная ссылка удалена');
+                            showToast('Հանրային հղումը հեռացված է');
                         }
                     });
                 });
