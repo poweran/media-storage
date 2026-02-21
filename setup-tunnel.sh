@@ -55,25 +55,28 @@ else
 
     ARCH=$(dpkg --print-architecture 2>/dev/null || echo "amd64")
 
-    if command -v apt-get &> /dev/null; then
-        # Debian/Ubuntu
-        curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg > /dev/null
-        echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" | \
-            sudo tee /etc/apt/sources.list.d/cloudflared.list > /dev/null
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq cloudflared
-    elif command -v dnf &> /dev/null; then
-        # Fedora/RHEL
-        sudo dnf install -y cloudflared 2>/dev/null || {
-            curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARCH}" \
-                -o /tmp/cloudflared
-            sudo install /tmp/cloudflared /usr/local/bin/cloudflared
-        }
+    if command -v dpkg &> /dev/null; then
+        # Debian/Ubuntu — скачиваем .deb напрямую с GitHub
+        info "Скачиваю .deb пакет для ${ARCH}..."
+        curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARCH}.deb" \
+            -o /tmp/cloudflared.deb
+        sudo dpkg -i /tmp/cloudflared.deb
+        rm -f /tmp/cloudflared.deb
+    elif command -v rpm &> /dev/null; then
+        # Fedora/RHEL/CentOS — скачиваем .rpm
+        RPM_ARCH=$(uname -m)
+        info "Скачиваю .rpm пакет для ${RPM_ARCH}..."
+        curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${RPM_ARCH}.rpm" \
+            -o /tmp/cloudflared.rpm
+        sudo rpm -i /tmp/cloudflared.rpm || sudo dnf install -y /tmp/cloudflared.rpm
+        rm -f /tmp/cloudflared.rpm
     else
         # Универсальный способ — бинарник
+        info "Скачиваю бинарник для ${ARCH}..."
         curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARCH}" \
             -o /tmp/cloudflared
         sudo install /tmp/cloudflared /usr/local/bin/cloudflared
+        rm -f /tmp/cloudflared
     fi
 
     log "cloudflared установлен"
