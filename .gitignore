@@ -1,3 +1,6 @@
 /node_modules
 /uploads
 .DS_Store
+/media.db-shm
+/media.db-wal
+/media.db
