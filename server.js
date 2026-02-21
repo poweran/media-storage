@@ -54,6 +54,9 @@ if (!fs.existsSync(uploadsDir)) {
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, uploadsDir),
     filename: (req, file, cb) => {
+        // Декодируем оригинальное имя файла для поддержки UTF-8 (кириллицы)
+        file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+
         const ext = path.extname(file.originalname);
         const storedName = nanoid(16) + ext;
         cb(null, storedName);
