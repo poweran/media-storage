@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Видеоплеер — Media Storage</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <div class="app player-page">
+        <header class="player-header">
+            <a href="/" class="back-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <line x1="19" y1="12" x2="5" y2="12" />
+                    <polyline points="12 19 5 12 12 5" />
+                </svg>
+                Назад
+            </a>
+            <h1 class="player-title" id="playerTitle">Загрузка...</h1>
+            <div class="player-actions">
+                <button class="icon-btn" id="shareBtn" title="Поделиться">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <circle cx="18" cy="5" r="3" />
+                        <circle cx="6" cy="12" r="3" />
+                        <circle cx="18" cy="19" r="3" />
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="player-main">
+            <video id="videoPlayer" controls autoplay>
+                Ваш браузер не поддерживает воспроизведение видео.
+            </video>
+        </main>
+
+        <footer class="player-footer">
+            <div class="player-info" id="playerInfo"></div>
+        </footer>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="/app.js"></script>
+    <script>
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('id');
+            if (!id) { window.location.href = '/'; return; }
+
+            fetch('/api/videos')
+                .then(r => r.json())
+                .then(videos => {
+                    const video = videos.find(v => v.id == id);
+                    if (!video) { window.location.href = '/'; return; }
+
+                    document.getElementById('playerTitle').textContent = video.filename;
+                    document.getElementById('videoPlayer').src = '/api/stream/' + id;
+                    document.getElementById('playerInfo').innerHTML =
+                        '<span>' + formatSize(video.size) + '</span>' +
+                        '<span>' + new Date(video.created_at).toLocaleDateString('ru-RU') + '</span>';
+                    document.title = video.filename + ' — Media Storage';
+
+                    // Share button
+                    document.getElementById('shareBtn').addEventListener('click', async () => {
+                        const res = await fetch('/api/videos/' + id + '/share', { method: 'POST' });
+                        const data = await res.json();
+                        if (data.share_id) {
+                            const url = window.location.origin + '/s/' + data.share_id;
+                            await navigator.clipboard.writeText(url);
+                            showToast('Ссылка скопирована!');
+                        } else {
+                            showToast('Публичная ссылка удалена');
+                        }
+                    });
+                });
+        })();
+    </script>
+</body>
+
+</html>
