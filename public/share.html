@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="hy">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ֆայլ — Media Storage</title>
+    <title>File — Provideo Media Holding</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -19,19 +19,33 @@
                     <polygon points="23 7 16 12 23 17 23 7" />
                     <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                 </svg>
-                <span class="logo-text">Media Storage</span>
+                <span class="logo-text">Provideo Media Holding</span>
             </div>
         </header>
 
         <main class="share-main">
-            <div class="share-player-wrap">
+            <div class="share-player-wrap" style="position: relative;">
                 <video id="shareVideo" controls autoplay style="display: none;">
                     Ձեր դիտարկիչը չի աջակցում վիդեոյի նվագարկումը։
                 </video>
                 <img id="shareImage" style="display: none; width: 100%; height: 100%; object-fit: contain;" alt="Photo">
+
+                <div id="qualitySelector" class="quality-wrapper" style="display: none; bottom: 64px; right: 16px;">
+                    <button class="quality-btn" id="qualityBtn" title="Որակ">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"
+                            height="16">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path
+                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                            </path>
+                        </svg>
+                        <span id="qualityCurrent">Օրիգինալ</span>
+                    </button>
+                    <div class="quality-menu" id="qualityMenu"></div>
+                </div>
             </div>
             <div class="share-info">
-                <h1 id="shareTitle">Բեռնվում է...</h1>
+                <h1 id="shareTitle">Loading...</h1>
                 <div class="share-meta" id="shareMeta"></div>
                 <a class="download-btn" id="downloadBtn" download>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
@@ -39,7 +53,7 @@
                         <polyline points="7 10 12 15 17 10" />
                         <line x1="12" y1="15" x2="12" y2="3" />
                     </svg>
-                    Ներբեռնել
+                    Download
                 </a>
             </div>
         </main>
@@ -59,7 +73,7 @@
 
             fetch('/api/share/' + shareId)
                 .then(r => {
-                    if (!r.ok) throw new Error('Չի գտնվել');
+                    if (!r.ok) throw new Error('Not found');
                     return r.json();
                 })
                 .then(video => {
@@ -74,18 +88,81 @@
                         document.getElementById('shareImage').style.display = 'none';
                         const vid = document.getElementById('shareVideo');
                         vid.style.display = 'block';
-                        vid.src = '/api/share/' + shareId + '/stream';
+
+                        fetch('/api/share/' + shareId + '/qualities')
+                            .then(r => r.json())
+                            .then(qualities => {
+                                if (qualities.length > 1) {
+                                    const qs = document.getElementById('qualitySelector');
+                                    const qm = document.getElementById('qualityMenu');
+                                    const qc = document.getElementById('qualityCurrent');
+                                    const qb = document.getElementById('qualityBtn');
+
+                                    qs.style.display = 'block';
+                                    let activeQuality = 'original';
+                                    vid.src = '/api/share/' + shareId + '/stream';
+
+                                    const renderMenu = () => {
+                                        qm.innerHTML = qualities.map(q => `
+                                            <button class="quality-option ${activeQuality === q.value ? 'active' : ''}" data-val="${q.value}">
+                                                ${q.label}
+                                                ${activeQuality === q.value ? '✓' : ''}
+                                            </button>
+                                        `).join('');
+
+                                        qm.querySelectorAll('.quality-option').forEach(btn => {
+                                            btn.addEventListener('click', (e) => {
+                                                const targetVal = e.target.getAttribute('data-val');
+                                                const targetLabel = qualities.find(x => x.value === targetVal).label;
+
+                                                if (activeQuality !== targetVal) {
+                                                    const currentTime = vid.currentTime;
+                                                    const isPaused = vid.paused;
+                                                    activeQuality = targetVal;
+                                                    qc.textContent = targetLabel;
+
+                                                    vid.src = '/api/share/' + shareId + '/stream' + (targetVal === 'original' ? '' : '?q=' + targetVal);
+                                                    vid.addEventListener('loadedmetadata', function onLoaded() {
+                                                        vid.currentTime = currentTime;
+                                                        if (!isPaused) vid.play();
+                                                        vid.removeEventListener('loadedmetadata', onLoaded);
+                                                    });
+                                                    renderMenu();
+                                                }
+                                                qm.classList.remove('show');
+                                            });
+                                        });
+                                    };
+
+                                    renderMenu();
+
+                                    qb.addEventListener('click', () => {
+                                        qm.classList.toggle('show');
+                                    });
+
+                                    document.addEventListener('click', (e) => {
+                                        if (!qs.contains(e.target)) {
+                                            qm.classList.remove('show');
+                                        }
+                                    });
+                                } else {
+                                    vid.src = '/api/share/' + shareId + '/stream';
+                                }
+                            })
+                            .catch(() => {
+                                vid.src = '/api/share/' + shareId + '/stream';
+                            });
                     }
 
                     document.getElementById('shareMeta').innerHTML =
                         '<span>' + formatSize(video.size) + '</span> • <span>' +
-                        new Date(video.created_at).toLocaleDateString('hy-AM') + '</span>';
+                        new Date(video.created_at).toLocaleDateString('en-US') + '</span>';
                     document.getElementById('downloadBtn').href = '/api/share/' + shareId + '/stream';
-                    document.title = video.filename + ' — Media Storage';
+                    document.title = video.filename + ' — Provideo Media Holding';
                 })
                 .catch(() => {
                     document.querySelector('.share-main').innerHTML =
-                        '<div class="share-error"><h2>Ֆայլը չի գտնվել</h2><p>Հղումն անվավեր է կամ ֆայլը հեռացվել է</p></div>';
+                        '<div class="share-error"><h2>File not found</h2><p>The link is invalid or the file has been removed</p></div>';
                 });
         })();
     </script>

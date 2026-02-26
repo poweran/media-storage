@@ -34,7 +34,7 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
-            margin-bottom: 32px;
+            margin-bottom: 24px;
         }
 
         .login-logo svg {
@@ -47,6 +47,30 @@
             font-size: 22px;
             font-weight: 700;
             letter-spacing: -0.5px;
+        }
+
+        .login-tabs {
+            display: flex;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .login-tab {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-secondary);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .login-tab.active {
+            border-bottom-color: var(--accent);
+            color: var(--text-primary);
         }
 
         .login-field {
@@ -72,6 +96,7 @@
             font-family: inherit;
             outline: none;
             transition: border-color var(--transition);
+            box-sizing: border-box;
         }
 
         .login-field input:focus {
@@ -90,6 +115,7 @@
             cursor: pointer;
             transition: all var(--transition);
             font-family: inherit;
+            margin-top: 8px;
         }
 
         .login-submit:hover {
@@ -104,6 +130,10 @@
             text-align: center;
             margin-bottom: 16px;
             display: none;
+            background: rgba(239, 68, 68, 0.1);
+            padding: 10px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(239, 68, 68, 0.2);
         }
     </style>
 </head>
@@ -118,40 +148,79 @@
                 </svg>
                 <span>Media Storage</span>
             </div>
-            <form id="loginForm">
-                <div class="login-error" id="loginError">Սխալ գաղտնաբառ</div>
+
+            <div class="login-tabs">
+                <button class="login-tab active" id="tabLogin">Մուտք</button>
+                <button class="login-tab" id="tabRegister">Գրանցում</button>
+            </div>
+
+            <form id="authForm">
+                <div class="login-error" id="loginError">Սխալ անուն կամ գաղտնաբառ</div>
+                <div class="login-field">
+                    <label for="username">Անուն (Օգտանուն)</label>
+                    <input type="text" id="username" name="username" placeholder="Մուտքագրեք անունը" autofocus required>
+                </div>
                 <div class="login-field">
                     <label for="password">Գաղտնաբառ</label>
-                    <input type="password" id="password" name="password" placeholder="Մուտքագրեք գաղտնաբառը" autofocus
-                        required>
+                    <input type="password" id="password" name="password" placeholder="Մուտքագրեք գաղտնաբառը" required>
                 </div>
-                <button type="submit" class="login-submit">Մուտք</button>
+                <button type="submit" class="login-submit" id="submitBtn">Մուտք</button>
             </form>
         </div>
     </div>
     <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        let isLogin = true;
+        const tabLogin = document.getElementById('tabLogin');
+        const tabRegister = document.getElementById('tabRegister');
+        const submitBtn = document.getElementById('submitBtn');
+        const errorEl = document.getElementById('loginError');
+
+        tabLogin.addEventListener('click', () => {
+            isLogin = true;
+            tabLogin.classList.add('active');
+            tabRegister.classList.remove('active');
+            submitBtn.textContent = 'Մուտք';
+            errorEl.style.display = 'none';
+            document.title = 'Մուտք — Media Storage';
+        });
+
+        tabRegister.addEventListener('click', () => {
+            isLogin = false;
+            tabRegister.classList.add('active');
+            tabLogin.classList.remove('active');
+            submitBtn.textContent = 'Գրանցվել';
+            errorEl.style.display = 'none';
+            document.title = 'Գրանցում — Media Storage';
+        });
+
+        document.getElementById('authForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
-            const errorEl = document.getElementById('loginError');
             errorEl.style.display = 'none';
 
+            const endpoint = isLogin ? '/api/login' : '/api/register';
+
             try {
-                const res = await fetch('/api/login', {
+                const res = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password })
+                    body: JSON.stringify({ username, password })
                 });
 
                 if (res.ok) {
                     const redirect = new URLSearchParams(window.location.search).get('redirect') || '/';
                     window.location.href = redirect;
                 } else {
+                    const data = await res.json();
+                    errorEl.textContent = data.error || 'Սխալ';
                     errorEl.style.display = 'block';
-                    document.getElementById('password').value = '';
-                    document.getElementById('password').focus();
+                    if (isLogin) {
+                        document.getElementById('password').value = '';
+                        document.getElementById('password').focus();
+                    }
                 }
-            } catch {
+            } catch (err) {
                 errorEl.textContent = 'Ցանցի սխալ';
                 errorEl.style.display = 'block';
             }

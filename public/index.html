@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="hy">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Media Storage — Մեդիա պահոց</title>
-  <meta name="description" content="Վիդեո և ֆոտո ֆայլերի պարզ պահոց առցանց դիտմամբ և հանրային հղումներով">
+  <title>Provideo Media Holding</title>
+  <meta name="description" content="Simple video and photo storage with online viewing and public links">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -22,10 +22,18 @@
             <polygon points="23 7 16 12 23 17 23 7" />
             <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
           </svg>
-          <span class="logo-text">Media Storage</span>
+          <span class="logo-text">Provideo Media Holding</span>
         </div>
         <div class="header-stats" id="headerStats"></div>
-        <button class="icon-btn" onclick="logout()" title="Դուրս գալ" style="margin-left: 12px;">
+        <div class="user-profile" id="userProfile"
+          style="margin-left: 20px; font-weight: 500; display: flex; align-items: center; gap: 8px; color: var(--text-secondary);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span id="usernameDisplay">...</span>
+        </div>
+        <button class="icon-btn" onclick="logout()" title="Logout" style="margin-left: 12px;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
             <polyline points="16 17 21 12 16 7" />
@@ -45,24 +53,24 @@
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
         </div>
-        <p class="upload-text">Քաշեք և գցեք վիդեո և ֆոտո ֆայլերն այստեղ</p>
-        <p class="upload-subtext">կամ</p>
+        <p class="upload-text">Drag and drop video and photo files here</p>
+        <p class="upload-subtext">or</p>
         <label class="upload-btn" for="fileInput">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
-          Ընտրել ֆայլեր
+          Select files
         </label>
         <input type="file" id="fileInput" multiple accept="video/*,image/*" hidden>
-        <p class="upload-hint">Վիդեո և ֆոտո ֆայլեր մինչև 2 ԳԲ • Մինչև 50 ֆայլ միաժամանակ</p>
+        <p class="upload-hint">Video and photo files up to 2 GB • Up to 50 files at once</p>
       </div>
 
       <!-- Progress Bar -->
       <div class="progress-container" id="progressContainer" style="display: none;">
         <div class="progress-info">
-          <span id="progressText">Բեռնվում է...</span>
+          <span id="progressText">Uploading...</span>
           <span id="progressPercent">0%</span>
         </div>
         <div class="progress-bar">
@@ -74,7 +82,7 @@
     <!-- Video Grid -->
     <section class="videos-section">
       <div class="videos-header">
-        <h2 class="videos-title">Իմ ֆայլերը</h2>
+        <h2 class="videos-title">My files</h2>
         <div class="videos-count" id="videosCount"></div>
       </div>
       <div class="videos-grid" id="videosGrid">
@@ -85,8 +93,8 @@
           <polygon points="23 7 16 12 23 17 23 7" />
           <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
         </svg>
-        <p>Ներբեռնված ֆայլեր չկան</p>
-        <span>Քաշեք ֆայլերը վերևի դաշտ կամ սեղմեք «Ընտրել ֆայլեր»</span>
+        <p>No uploaded files</p>
+        <span>Drag files to the area above or click "Select files"</span>
       </div>
     </section>
   </div>
@@ -94,11 +102,11 @@
   <!-- Rename Modal -->
   <div class="modal-overlay" id="renameModal" style="display: none;">
     <div class="modal">
-      <h3>Անվանափոխել</h3>
-      <input type="text" class="modal-input" id="renameInput" placeholder="Նոր անվանում">
+      <h3>Rename</h3>
+      <input type="text" class="modal-input" id="renameInput" placeholder="New name">
       <div class="modal-actions">
-        <button class="modal-btn modal-btn-cancel" onclick="closeRenameModal()">Չեղարկել</button>
-        <button class="modal-btn modal-btn-confirm" onclick="confirmRename()">Պահպանել</button>
+        <button class="modal-btn modal-btn-cancel" onclick="closeRenameModal()">Cancel</button>
+        <button class="modal-btn modal-btn-confirm" onclick="confirmRename()">Save</button>
       </div>
     </div>
   </div>

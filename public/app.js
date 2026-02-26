@@ -46,7 +46,7 @@ if (uploadZone) {
     uploadZone.addEventListener('drop', (e) => {
         const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('video/') || f.type.startsWith('image/'));
         if (files.length > 0) uploadFiles(files);
-        else showToast('Թույլատրվում են միայն վիդեո և ֆոտո ֆայլեր', 'error');
+        else showToast('Only video and photo files are allowed', 'error');
     });
 
     // Клик на зону загрузки тоже открывает выбор файлов
@@ -72,28 +72,28 @@ function uploadFiles(files) {
 
     // Показать прогресс
     progressContainer.style.display = 'block';
-    progressText.textContent = `Բեռնվում է ${files.length} ֆայլ...`;
+    progressText.textContent = `Uploading ${files.length} files...`;
 
     xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
             const percent = Math.round((e.loaded / e.total) * 100);
             progressFill.style.width = percent + '%';
             progressPercent.textContent = percent + '%';
-            progressText.textContent = `Բեռնվում է ${files.length} ֆայլ... (${formatSize(e.loaded)} / ${formatSize(e.total)})`;
+            progressText.textContent = `Uploading ${files.length} files... (${formatSize(e.loaded)} / ${formatSize(e.total)})`;
         }
     });
 
     xhr.addEventListener('load', () => {
         if (xhr.status === 200) {
             const data = JSON.parse(xhr.responseText);
-            showToast(`Բեռնվել է ${data.uploaded.length} ֆայլ`);
+            showToast(`Uploaded ${data.uploaded.length} files`);
             loadVideos();
         } else {
             try {
                 const err = JSON.parse(xhr.responseText);
-                showToast(err.error || 'Բեռնման սխալ', 'error');
+                showToast(err.error || 'Upload error', 'error');
             } catch {
-                showToast('Բեռնման սխալ', 'error');
+                showToast('Upload error', 'error');
             }
         }
 
@@ -107,7 +107,7 @@ function uploadFiles(files) {
     });
 
     xhr.addEventListener('error', () => {
-        showToast('Ցանցի սխալ', 'error');
+        showToast('Network error', 'error');
         progressContainer.style.display = 'none';
         fileInput.value = '';
     });
@@ -140,13 +140,13 @@ async function loadVideos() {
 
         videosGrid.style.display = 'grid';
         emptyState.style.display = 'none';
-        videosCount.textContent = `${videos.length} ֆայլ`;
+        videosCount.textContent = `${videos.length} files`;
 
         // Статистика в хедере
         const totalSize = videos.reduce((sum, v) => sum + v.size, 0);
         if (headerStats) {
             headerStats.innerHTML = `
-        <span>${videos.length} ֆայլ</span>
+        <span>${videos.length} files</span>
         <span>${formatSize(totalSize)}</span>
       `;
         }
@@ -172,25 +172,32 @@ async function loadVideos() {
           <div class="video-meta">
             <span>${formatSize(video.size)}</span>
             <span>${new Date(video.created_at).toLocaleDateString('hy-AM')}</span>
+            ${video.uploader_username ? `<span class="video-uploader" style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: auto;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10" style="vertical-align: -1px; margin-right: 2px;">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              ${escapeHtml(video.uploader_username)}
+            </span>` : ''}
           </div>
         </div>
         <div class="video-actions">
-          <button class="icon-btn ${video.share_id ? 'shared' : ''}" onclick="toggleShare(${video.id})" title="${video.share_id ? 'Հեռացնել հղումը' : 'Կիսվել'}">
+          <button class="icon-btn ${video.share_id ? 'shared' : ''}" onclick="toggleShare(${video.id})" title="${video.share_id ? 'Remove link' : 'Share'}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
             </svg>
-            ${video.share_id ? 'Հղում' : 'Կիսվել'}
+            ${video.share_id ? 'Link' : 'Share'}
           </button>
-          <button class="icon-btn" onclick="openRenameModal(${video.id}, '${escapeJs(video.filename)}')" title="Անվանափոխել">
+          <button class="icon-btn" onclick="openRenameModal(${video.id}, '${escapeJs(video.filename)}')" title="Rename">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
           </button>
           <div class="btn-spacer"></div>
-          <button class="icon-btn danger" onclick="deleteVideo(${video.id}, '${escapeJs(video.filename)}')" title="Ջնջել">
+          <button class="icon-btn danger" onclick="deleteVideo(${video.id}, '${escapeJs(video.filename)}')" title="Delete">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <polyline points="3 6 5 6 21 6"/>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -201,7 +208,7 @@ async function loadVideos() {
     `).join('');
 
     } catch (err) {
-        console.error('Ցուցակի բեռնման սխալ.', err);
+        console.error('List loading error:', err);
     }
 }
 
@@ -221,34 +228,34 @@ async function toggleShare(id) {
             const url = window.location.origin + '/s/' + data.share_id;
             try {
                 await navigator.clipboard.writeText(url);
-                showToast('Հղումը պատճենվեց սեղմատախտակի մեջ։');
+                showToast('Link copied to clipboard.');
             } catch {
                 // Fallback: показать ссылку
-                prompt('Հանրային հղում․', url);
+                prompt('Public link:', url);
             }
         } else {
-            showToast('Հանրային հղումը հեռացված է');
+            showToast('Public link removed');
         }
 
         loadVideos();
     } catch (err) {
-        showToast('Սխալ', 'error');
+        showToast('Error', 'error');
     }
 }
 
 async function deleteVideo(id, filename) {
-    if (!confirm(`Ջնջե՞լ "${filename}"։`)) return;
+    if (!confirm(`Delete "${filename}"?`)) return;
 
     try {
         const res = await fetch(`/api/videos/${id}`, { method: 'DELETE' });
         if (res.ok) {
-            showToast('Ֆայլը ջնջված է');
+            showToast('File deleted');
             loadVideos();
         } else {
-            showToast('Ջնջման սխալ', 'error');
+            showToast('Deletion error', 'error');
         }
     } catch (err) {
-        showToast('Ցանցի սխալ', 'error');
+        showToast('Network error', 'error');
     }
 }
 
@@ -277,7 +284,7 @@ async function confirmRename() {
     const newName = input.value.trim();
 
     if (!newName) {
-        showToast('Անունը չի կարող դատարկ լինել', 'error');
+        showToast('Name cannot be empty', 'error');
         return;
     }
 
@@ -289,14 +296,14 @@ async function confirmRename() {
         });
 
         if (res.ok) {
-            showToast('Անվանափոխված է');
+            showToast('Renamed');
             closeRenameModal();
             loadVideos();
         } else {
-            showToast('Սխալ', 'error');
+            showToast('Error', 'error');
         }
     } catch (err) {
-        showToast('Ցանցի սխալ', 'error');
+        showToast('Network error', 'error');
     }
 }
 
@@ -341,6 +348,20 @@ async function logout() {
 // ============================
 // Инициализация
 // ============================
+async function loadUserProfile() {
+    try {
+        const res = await fetch('/api/me');
+        if (res.ok) {
+            const data = await res.json();
+            const display = document.getElementById('usernameDisplay');
+            if (display) display.textContent = data.username;
+        }
+    } catch {
+        // ignore
+    }
+}
+
 if (videosGrid) {
+    loadUserProfile();
     loadVideos();
 }

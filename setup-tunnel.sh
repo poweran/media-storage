@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================
-# Скрипт настройки Cloudflare Tunnel для Media Storage (Linux)
+# Скрипт настройки Cloudflare Tunnel для Provideo Media Holding (Linux)
 # =============================================================
 # Использование:
 #   chmod +x setup-tunnel.sh
@@ -41,7 +41,7 @@ done
 
 echo ""
 echo -e "${CYAN}╔══════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║   Cloudflare Tunnel — Media Storage      ║${NC}"
+echo -e "${CYAN}║   Cloudflare Tunnel — Provideo Media Holding      ║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════════╝${NC}"
 echo ""
 

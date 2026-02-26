@@ -2,34 +2,50 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { spawn, exec } = require('child_process');
 const crypto = require('crypto');
 const cookieParser = require('cookie-parser');
 const { nanoid } = require('nanoid');
+const bcrypt = require('bcrypt');
 const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ==================== Авторизация ====================
-const AUTH_PASSWORD = process.env.AUTH_PASSWORD || 'admin';
 const AUTH_SECRET = process.env.AUTH_SECRET || crypto.randomBytes(32).toString('hex');
 const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 дней
 
-function generateToken() {
+function generateToken(username) {
     const expires = Date.now() + TOKEN_MAX_AGE;
-    const data = `auth:${expires}`;
+    const data = `auth:${username}:${expires}`;
     const hmac = crypto.createHmac('sha256', AUTH_SECRET).update(data).digest('hex');
-    return `${expires}.${hmac}`;
+    return `${username}.${expires}.${hmac}`;
 }
 
 function verifyToken(token) {
     if (!token) return false;
     const parts = token.split('.');
-    if (parts.length !== 2) return false;
-    const [expires, hmac] = parts;
+    if (parts.length !== 3) return false;
+    const [username, expires, hmac] = parts;
     if (Date.now() > parseInt(expires)) return false;
-    const expected = crypto.createHmac('sha256', AUTH_SECRET).update(`auth:${expires}`).digest('hex');
-    return crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(expected));
+    const expected = crypto.createHmac('sha256', AUTH_SECRET).update(`auth:${username}:${expires}`).digest('hex');
+    const isValid = crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(expected));
+    return isValid ? username : false;
+}
+
+// Создаём пользователя по умолчанию, если БД пуста
+try {
+    const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+    if (userCount === 0) {
+        const defaultPassword = process.env.AUTH_PASSWORD || 'admin';
+        const hash = bcrypt.hashSync(defaultPassword, 10);
+        db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)')
+            .run('admin', hash);
+        console.log(`Создан пользователь по умолчанию: admin / ${process.env.AUTH_PASSWORD ? 'пароль из AUTH_PASSWORD' : 'admin'}`);
+    }
+} catch (err) {
+    console.error('Ошибка инициализации пользователей:', err);
 }
 
 // Публичные пути (не требуют авторизации)
@@ -37,6 +53,7 @@ function isPublicPath(pathname) {
     return (
         pathname === '/login.html' ||
         pathname === '/api/login' ||
+        pathname === '/api/register' ||
         pathname.startsWith('/s/') ||
         pathname.startsWith('/api/share/') ||
         pathname === '/style.css' ||
@@ -67,7 +84,7 @@ const fileFilter = (req, file, cb) => {
     if (file.mimetype.startsWith('video/') || file.mimetype.startsWith('image/')) {
         cb(null, true);
     } else {
-        cb(new Error('Թույլատրվում են միայն վիդեո և ֆոտո ֆայլեր'), false);
+        cb(new Error('Only video and photo files are allowed'), false);
     }
 };
 
@@ -76,6 +93,74 @@ const upload = multer({
     fileFilter,
     limits: { fileSize: 2 * 1024 * 1024 * 1024 } // 2 GB
 });
+
+// ==================== Очередь перекодирования ====================
+const transcodeQueue = [];
+let isTranscoding = false;
+
+function getOriginalResolution(filePath) {
+    return new Promise((resolve) => {
+        exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "${filePath}"`, (err, stdout) => {
+            if (err) return resolve(null);
+            const [w, h] = stdout.trim().split('x').map(Number);
+            resolve(h); // Возвращаем высоту
+        });
+    });
+}
+
+function processQueue() {
+    if (isTranscoding || transcodeQueue.length === 0) return;
+    isTranscoding = true;
+    const task = transcodeQueue.shift();
+
+    const qualities = [1080, 720, 480, 360];
+
+    getOriginalResolution(task.input).then(origHeight => {
+        if (!origHeight) {
+            isTranscoding = false;
+            processQueue();
+            return;
+        }
+
+        const targets = qualities.filter(q => q < origHeight);
+
+        const processNextQuality = (index) => {
+            if (index >= targets.length) {
+                isTranscoding = false;
+                processQueue();
+                return;
+            }
+
+            const q = targets[index];
+            const ext = path.extname(task.input);
+            const outputName = task.input.replace(ext, `_${q}p.mp4`); // всегда mp4 для простоты
+
+            const args = [
+                '-i', task.input,
+                '-vf', `scale=-2:${q}`,
+                '-c:v', 'libx264',
+                '-preset', 'fast',
+                '-crf', '28',
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                '-y', outputName
+            ];
+
+            const ffmpeg = spawn('ffmpeg', args);
+
+            ffmpeg.on('close', (code) => {
+                if (code === 0) {
+                    console.log(`[FFmpeg] Успешно создано качество ${q}p для ${task.filename}`);
+                } else {
+                    console.error(`[FFmpeg] Ошибка создания ${q}p для ${task.filename}`);
+                }
+                processNextQuality(index + 1);
+            });
+        };
+
+        processNextQuality(0);
+    });
+}
 
 // Middleware
 app.use(cookieParser());
@@ -86,7 +171,11 @@ app.use((req, res, next) => {
     if (isPublicPath(req.path)) return next();
 
     const token = req.cookies.auth_token;
-    if (verifyToken(token)) return next();
+    const username = verifyToken(token);
+    if (username) {
+        req.user = { username };
+        return next();
+    }
 
     // Для API — 401, для страниц — редирект на логин
     if (req.path.startsWith('/api/')) {
@@ -100,11 +189,23 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ==================== Аутентификация ====================
 
+app.get('/api/me', (req, res) => res.json({ username: req.user.username }));
+
 // Логин
-app.post('/api/login', (req, res) => {
-    const { password } = req.body;
-    if (password === AUTH_PASSWORD) {
-        const token = generateToken();
+app.post('/api/login', async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Մուտքագրեք անունը և գաղտնաբառը' });
+    }
+
+    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    if (!user) {
+        return res.status(401).json({ error: 'Սխալ անուն կամ գաղտնաբառ' });
+    }
+
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (match) {
+        const token = generateToken(user.username);
         res.cookie('auth_token', token, {
             httpOnly: true,
             maxAge: TOKEN_MAX_AGE,
@@ -112,7 +213,36 @@ app.post('/api/login', (req, res) => {
         });
         res.json({ success: true });
     } else {
-        res.status(401).json({ error: 'Սխալ գաղտնաբառ' });
+        res.status(401).json({ error: 'Սխալ անուն կամ գաղտնաբառ' });
+    }
+});
+
+// Регистрация
+app.post('/api/register', async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Մուտքագրեք անունը և գաղտնաբառը' });
+    }
+
+    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+    if (existing) {
+        return res.status(400).json({ error: 'Այդ անունով օգտատեր արդեն գոյություն ունի' });
+    }
+
+    try {
+        const hash = await bcrypt.hash(password, 10);
+        db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, hash);
+
+        const token = generateToken(username);
+        res.cookie('auth_token', token, {
+            httpOnly: true,
+            maxAge: TOKEN_MAX_AGE,
+            sameSite: 'lax'
+        });
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Գրանցման սխալ' });
     }
 });
 
@@ -133,12 +263,12 @@ app.get('/api/videos', (req, res) => {
 // Массовая загрузка видео
 app.post('/api/upload', upload.array('files', 50), (req, res) => {
     if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ error: 'Ֆայլեր ընտրված չեն' });
+        return res.status(400).json({ error: 'No files selected' });
     }
 
     const insert = db.prepare(`
-    INSERT INTO videos (filename, stored_name, size, mime_type)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO videos (filename, stored_name, size, mime_type, uploader_username)
+    VALUES (?, ?, ?, ?, ?)
   `);
 
     const insertMany = db.transaction((files) => {
@@ -148,14 +278,16 @@ app.post('/api/upload', upload.array('files', 50), (req, res) => {
                 file.originalname,
                 file.filename,
                 file.size,
-                file.mimetype
+                file.mimetype,
+                req.user.username
             );
             results.push({
                 id: info.lastInsertRowid,
                 filename: file.originalname,
                 stored_name: file.filename,
                 size: file.size,
-                mime_type: file.mimetype
+                mime_type: file.mimetype,
+                uploader_username: req.user.username
             });
         }
         return results;
@@ -163,9 +295,21 @@ app.post('/api/upload', upload.array('files', 50), (req, res) => {
 
     try {
         const results = insertMany(req.files);
+
+        // Добавляем видео в очередь перекодирования
+        req.files.forEach(file => {
+            if (file.mimetype.startsWith('video/')) {
+                transcodeQueue.push({
+                    input: path.join(uploadsDir, file.filename),
+                    filename: file.originalname
+                });
+            }
+        });
+        processQueue(); // Запускаем очередь, если она стоит
+
         res.json({ uploaded: results });
     } catch (err) {
-        res.status(500).json({ error: 'Պահպանման սխալ' });
+        res.status(500).json({ error: 'Storage error' });
     }
 });
 
@@ -173,15 +317,26 @@ app.post('/api/upload', upload.array('files', 50), (req, res) => {
 app.delete('/api/videos/:id', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
     if (!video) {
-        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
+        return res.status(404).json({ error: 'Video not found' });
     }
 
-    // Удаляем файл с диска
-    const filePath = path.join(uploadsDir, video.stored_name);
+    // Удаляем файл с диска и его версии качества
     try {
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-        }
+        const ext = path.extname(video.stored_name);
+        const baseName = video.stored_name.replace(ext, '');
+
+        const filesToRemove = [
+            video.stored_name,
+            `${baseName}_1080p.mp4`,
+            `${baseName}_720p.mp4`,
+            `${baseName}_480p.mp4`,
+            `${baseName}_360p.mp4`,
+        ];
+
+        filesToRemove.forEach(f => {
+            const fp = path.join(uploadsDir, f);
+            if (fs.existsSync(fp)) fs.unlinkSync(fp);
+        });
     } catch (err) {
         console.error('Ошибка удаления файла:', err);
     }
@@ -194,7 +349,7 @@ app.delete('/api/videos/:id', (req, res) => {
 app.patch('/api/videos/:id', (req, res) => {
     const { filename } = req.body;
     if (!filename) {
-        return res.status(400).json({ error: 'Ֆայլի անունը պարտադիր է' });
+        return res.status(400).json({ error: 'Filename is required' });
     }
 
     const result = db.prepare('UPDATE videos SET filename = ? WHERE id = ?')
@@ -243,6 +398,43 @@ app.get('/api/share/:shareId/stream', (req, res) => {
     streamVideo(res, req, video);
 });
 
+// Получение доступных качеств видео
+app.get('/api/videos/:id/qualities', (req, res) => {
+    const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
+    if (!video) return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
+    if (!video.mime_type.startsWith('video/')) return res.json([]);
+
+    const ext = path.extname(video.stored_name);
+    const baseName = video.stored_name.replace(ext, '');
+    const available = [{ label: 'Օրիգինալ', value: 'original' }];
+    const qualities = ['1080p', '720p', '480p', '360p'];
+
+    qualities.forEach(q => {
+        if (fs.existsSync(path.join(uploadsDir, `${baseName}_${q}.mp4`))) {
+            available.push({ label: q, value: q });
+        }
+    });
+    res.json(available);
+});
+
+app.get('/api/share/:shareId/qualities', (req, res) => {
+    const video = db.prepare('SELECT * FROM videos WHERE share_id = ?').get(req.params.shareId);
+    if (!video) return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
+    if (!video.mime_type.startsWith('video/')) return res.json([]);
+
+    const ext = path.extname(video.stored_name);
+    const baseName = video.stored_name.replace(ext, '');
+    const available = [{ label: 'Օրիգինալ', value: 'original' }];
+    const qualities = ['1080p', '720p', '480p', '360p'];
+
+    qualities.forEach(q => {
+        if (fs.existsSync(path.join(uploadsDir, `${baseName}_${q}.mp4`))) {
+            available.push({ label: q, value: q });
+        }
+    });
+    res.json(available);
+});
+
 // Информация о публичном видео
 app.get('/api/share/:shareId', (req, res) => {
     const video = db.prepare('SELECT id, filename, size, mime_type, created_at FROM videos WHERE share_id = ?')
@@ -259,21 +451,54 @@ app.get('/s/:shareId', (req, res) => {
     if (!video) {
         return res.status(404).send('Վիդեոն չի գտնվել');
     }
-    res.sendFile(path.join(__dirname, 'public', 'share.html'));
+
+    fs.readFile(path.join(__dirname, 'public', 'share.html'), 'utf8', (err, html) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).send('Server error');
+        }
+
+        const safeFilename = video.filename
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+
+        const customHtml = html.replace(
+            '<title>File — Provideo Media Holding</title>',
+            `<title>${safeFilename} — Provideo Media Holding</title>\n    <meta property="og:title" content="${safeFilename}">\n    <meta property="og:site_name" content="Provideo Media Holding">`
+        );
+
+        res.send(customHtml);
+    });
 });
 
 // ==================== Стриминг ====================
 
 function streamVideo(res, req, video) {
-    const filePath = path.join(uploadsDir, video.stored_name);
+    let fileName = video.stored_name;
+    const quality = req.query.q;
+
+    if (quality && quality !== 'original' && video.mime_type.startsWith('video/')) {
+        const ext = path.extname(video.stored_name);
+        const baseName = fileName.replace(ext, '');
+        const qualityName = `${baseName}_${quality}.mp4`;
+        if (fs.existsSync(path.join(uploadsDir, qualityName))) {
+            fileName = qualityName;
+        }
+    }
+
+    const filePath = path.join(uploadsDir, fileName);
 
     if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ error: 'Ֆայլը սկավառակի վրա չի գտնվել' });
+        return res.status(404).json({ error: 'File not found on disk' });
     }
 
     const stat = fs.statSync(filePath);
     const fileSize = stat.size;
     const range = req.headers.range;
+    const mimeType = fileName !== video.stored_name ? 'video/mp4' : video.mime_type;
 
     if (range) {
         const parts = range.replace(/bytes=/, '').split('-');
@@ -287,14 +512,14 @@ function streamVideo(res, req, video) {
             'Content-Range': `bytes ${start}-${end}/${fileSize}`,
             'Accept-Ranges': 'bytes',
             'Content-Length': chunkSize,
-            'Content-Type': video.mime_type,
+            'Content-Type': mimeType,
         });
 
         stream.pipe(res);
     } else {
         res.writeHead(200, {
             'Content-Length': fileSize,
-            'Content-Type': video.mime_type,
+            'Content-Type': mimeType,
         });
 
         fs.createReadStream(filePath).pipe(res);
@@ -305,7 +530,7 @@ function streamVideo(res, req, video) {
 app.use((err, req, res, next) => {
     if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
-            return res.status(413).json({ error: 'Ֆայլը չափազանց մեծ է (առավելագույնը 2 ԳԲ)' });
+            return res.status(413).json({ error: 'File is too large (max 2 GB)' });
         }
         return res.status(400).json({ error: err.message });
     }
@@ -316,6 +541,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`\n🎬 Media Storage запущен на http://localhost:${PORT}`);
-    console.log(`🔒 Пароль: ${AUTH_PASSWORD}\n`);
+    console.log(`\n🎬 Provideo Media Holding запущен на http://localhost:${PORT}\n`);
 });
