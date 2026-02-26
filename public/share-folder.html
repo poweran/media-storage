@@ -219,19 +219,12 @@
         </header>
 
         <main class="main-content">
-            <div class="folder-header"
-                style="display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-end;">
-                <div>
-                    <div class="breadcrumbs" id="breadcrumbs">
-                        <span class="crumb active">Loading...</span>
-                    </div>
-                    <h1 class="folder-title" id="folderTitle">Loading folder...</h1>
-                    <div class="folder-meta" id="folderMeta"></div>
+            <div class="folder-header">
+                <div class="breadcrumbs" id="breadcrumbs">
+                    <span class="crumb active">Loading...</span>
                 </div>
-                <div style="margin-bottom: 4px;">
-                    <input type="text" id="folderSearchInput" placeholder="Search files & folders"
-                        style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); outline: none; font-size: 14px; width: 250px;">
-                </div>
+                <h1 class="folder-title" id="folderTitle">Loading folder...</h1>
+                <div class="folder-meta" id="folderMeta"></div>
             </div>
 
             <div id="contentGrid" class="videos-grid" style="display: none;"></div>
@@ -268,17 +261,6 @@
             const breadcrumbsEl = document.getElementById('breadcrumbs');
             const folderTitleEl = document.getElementById('folderTitle');
             const folderMetaEl = document.getElementById('folderMeta');
-            const searchInput = document.getElementById('folderSearchInput');
-
-            let currentFolderData = null;
-            let currentSearchQuery = '';
-
-            if (searchInput) {
-                searchInput.addEventListener('input', (e) => {
-                    currentSearchQuery = e.target.value.toLowerCase().trim();
-                    renderContent();
-                });
-            }
 
             function loadFolder(targetSubId = null) {
                 let url = '/api/share/folder/' + shareId;
@@ -295,199 +277,176 @@
                     })
                     .then(data => {
                         errorState.style.display = 'none';
-                        currentFolderData = data;
+                        const { folder, subfolders, videos, breadcrumbs } = data;
+
+                        // Заголовок
+                        folderTitleEl.textContent = folder.name;
+                        const totalItems = subfolders.length + videos.length;
+                        folderMetaEl.textContent = totalItems + ' items';
+
+                        // Хлебные крошки
+                        let bcHtml = '';
+                        breadcrumbs.forEach((bc, idx) => {
+                            const isActive = idx === breadcrumbs.length - 1;
+                            if (isActive) {
+                                bcHtml += `<span class="crumb active">${escapeHtml(bc.name)}</span>`;
+                            } else {
+                                const q = idx === 0 ? '' : `?subfolder_id=${bc.id}`;
+                                bcHtml += `<a href="/s/f/${shareId}${q}" class="crumb" style="text-decoration:none;">${escapeHtml(bc.name)}</a>`;
+                            }
+                        });
+                        breadcrumbsEl.innerHTML = bcHtml;
 
                         // Обновляем URL без перезагрузки страницы (History API)
                         const newUrl = targetSubId ? `/s/f/${shareId}?subfolder_id=${targetSubId}` : `/s/f/${shareId}`;
                         window.history.pushState({ subId: targetSubId }, '', newUrl);
 
-                        renderContent();
-                    })
-            }
+                        if (totalItems === 0) {
+                            contentGrid.style.display = 'none';
+                            emptyState.style.display = 'block';
+                            return;
+                        }
 
-            function renderContent() {
-                if (!currentFolderData) return;
-                const { folder, subfolders, videos, breadcrumbs } = currentFolderData;
+                        // Рендерим сетку
+                        contentGrid.style.display = 'grid';
+                        emptyState.style.display = 'none';
 
-                let filteredSubfolders = subfolders;
-                let filteredVideos = videos;
+                        let html = '';
 
-                if (currentSearchQuery) {
-                    filteredSubfolders = subfolders.filter(s => s.name && s.name.toLowerCase().includes(currentSearchQuery));
-                    filteredVideos = videos.filter(v => v.filename && v.filename.toLowerCase().includes(currentSearchQuery));
-                }
-
-                // Заголовок
-                folderTitleEl.textContent = folder.name;
-                const totalItems = filteredSubfolders.length + filteredVideos.length;
-                folderMetaEl.textContent = totalItems + ' items' + (currentSearchQuery ? ' (filtered)' : '');
-
-                // Хлебные крошки
-                let bcHtml = '';
-                breadcrumbs.forEach((bc, idx) => {
-                    const isActive = idx === breadcrumbs.length - 1;
-                    if (isActive) {
-                        bcHtml += `<span class="crumb active">${escapeHtml(bc.name)}</span>`;
-                    } else {
-                        const q = idx === 0 ? '' : `?subfolder_id=${bc.id}`;
-                        bcHtml += `<a href="/s/f/${shareId}${q}" class="crumb" style="text-decoration:none;">${escapeHtml(bc.name)}</a>`;
-                    }
-                });
-                breadcrumbsEl.innerHTML = bcHtml;
-
-                if (totalItems === 0) {
-                    contentGrid.style.display = 'none';
-                    if (currentSearchQuery) {
-                        emptyState.innerHTML = `<h3 style="margin-bottom: 8px; color: var(--text-primary);">No items found</h3><p style="color: var(--text-secondary);">Try a different search query.</p>`;
-                    } else {
-                        emptyState.innerHTML = `
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" style="margin-bottom: 16px; opacity: 0.5;">
-                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                            </svg>
-                            <h3 style="margin-bottom: 8px; color: var(--text-primary);">This folder is empty</h3>
-                        `;
-                    }
-                    emptyState.style.display = 'block';
-                } else {
-                    contentGrid.style.display = 'grid';
-                    emptyState.style.display = 'none';
-
-                    let html = '';
-
-                    // Подпапки
-                    html += filteredSubfolders.map(sub => `
-                      <div class="video-card folder-card">
-                        <a href="/s/f/${shareId}?subfolder_id=${sub.id}" class="folder-thumb" style="text-decoration: none;" onclick="event.preventDefault(); document.getElementById('folderSearchInput').value=''; currentSearchQuery=''; window.loadTargetFolder(${sub.id});">
-                          <svg class="folder-icon" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
-                          </svg>
-                        </a>
-                        <div class="video-info">
-                          <div class="video-name" title="${escapeHtml(sub.name)}">${escapeHtml(sub.name)}</div>
-                          <div class="video-meta">
-                            <span>Folder</span>
-                            <span>${new Date(sub.created_at).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                        <div class="video-actions">
-                          <a href="/s/f/${shareId}?subfolder_id=${sub.id}" class="icon-btn" style="flex-grow: 1; justify-content: center;" onclick="event.preventDefault(); document.getElementById('folderSearchInput').value=''; currentSearchQuery=''; window.loadTargetFolder(${sub.id});">
-                            Open
-                          </a>
-                        </div>
-                      </div>
-                    `).join('');
-
-                    // Видео
-                    html += filteredVideos.map(vid => {
-                        const link = `/s/f/${shareId}/v/${vid.id}`;
-                        const isImage = vid.mime_type && vid.mime_type.startsWith('image/');
-                        return `
-                          <div class="video-card">
-                            <a href="${link}" class="video-thumb" style="text-decoration: none;">
-                              <div class="play-icon">
-                                ${isImage ?
-                                `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                                     <circle cx="8.5" cy="8.5" r="1.5" />
-                                     <polyline points="21 15 16 10 5 21" />
-                                   </svg>`
-                                : `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                                     <polygon points="5 3 19 12 5 21 5 3"/>
-                                   </svg>`
-                            }
-                              </div>
+                        // Подпапки
+                        html += subfolders.map(sub => `
+                          <div class="video-card folder-card">
+                            <a href="/s/f/${shareId}?subfolder_id=${sub.id}" class="folder-thumb" style="text-decoration: none;" onclick="event.preventDefault(); window.loadTargetFolder(${sub.id});">
+                              <svg class="folder-icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+                              </svg>
                             </a>
                             <div class="video-info">
-                              <div class="video-name" title="${escapeHtml(vid.filename)}">${escapeHtml(vid.filename)}</div>
+                              <div class="video-name" title="${escapeHtml(sub.name)}">${escapeHtml(sub.name)}</div>
                               <div class="video-meta">
-                                <span>${formatSize(vid.size)}</span>
-                                <span>${new Date(vid.created_at).toLocaleDateString()}</span>
+                                <span>Folder</span>
+                                <span>${new Date(sub.created_at).toLocaleDateString()}</span>
                               </div>
                             </div>
                             <div class="video-actions">
-                              <a href="${link}" class="icon-btn" style="flex-grow: 1; justify-content: center;">
-                                ${isImage ? 'View Photo' : 'Watch Video'}
+                              <a href="/s/f/${shareId}?subfolder_id=${sub.id}" class="icon-btn" style="flex-grow: 1; justify-content: center;" onclick="event.preventDefault(); window.loadTargetFolder(${sub.id});">
+                                Open
                               </a>
                             </div>
                           </div>
-                        `;
-                    }).join('');
+                        `).join('');
 
-                    contentGrid.innerHTML = html;
-                }
+                        // Видео
+                        html += videos.map(vid => {
+                            const link = `/s/f/${shareId}/v/${vid.id}`;
+                            const isImage = vid.mime_type && vid.mime_type.startsWith('image/');
+                            return `
+                              <div class="video-card">
+                                <a href="${link}" class="video-thumb" style="text-decoration: none;">
+                                  <div class="play-icon">
+                                    ${isImage ?
+                                    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                         <circle cx="8.5" cy="8.5" r="1.5" />
+                                         <polyline points="21 15 16 10 5 21" />
+                                       </svg>`
+                                    : `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                                         <polygon points="5 3 19 12 5 21 5 3"/>
+                                       </svg>`
+                                }
+                                  </div>
+                                </a>
+                                <div class="video-info">
+                                  <div class="video-name" title="${escapeHtml(vid.filename)}">${escapeHtml(vid.filename)}</div>
+                                  <div class="video-meta">
+                                    <span>${formatSize(vid.size)}</span>
+                                    <span>${new Date(vid.created_at).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+                                <div class="video-actions">
+                                  <a href="${link}" class="icon-btn" style="flex-grow: 1; justify-content: center;">
+                                    ${isImage ? 'View Photo' : 'Watch Video'}
+                                  </a>
+                                </div>
+                              </div>
+                            `;
+                        }).join('');
 
-                // Title документа
-                const siteTitle = window.siteTitle || 'Provideo Media Holding';
-                document.title = `${folder.name} — ${siteTitle}`;
-                document.getElementById('logoText').textContent = siteTitle;
-            } if (!sessionStorage.getItem('attentionPopupShown')) {
-                const popup = document.createElement('div');
-                popup.innerHTML = `
+                        contentGrid.innerHTML = html;
+
+                        // Title документа
+                        const siteTitle = window.siteTitle || 'Provideo Media Holding';
+                        document.title = `${folder.name} — ${siteTitle}`;
+                        document.getElementById('logoText').textContent = siteTitle;
+
+                        if (!sessionStorage.getItem('attentionPopupShown')) {
+                            const popup = document.createElement('div');
+                            popup.innerHTML = `
                                 <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
                                     <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; max-width: 600px; width: 100%; padding: 32px; text-align: center; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                                        <h2 style="margin-top: 0; margin-bottom: 16px; color: var(--text-primary);">ՈՒՇԱԴՐՈՒԹՅՈՒՆ / ATTENTION</h2>
+                                        <h2 style="margin-top: 0; margin-bottom: 16px; color: var(--text-primary);">ՈՒdelays / ATTENTION</h2>
                                         <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px; color: var(--text-secondary);">
-                                            Խնդրում ենք Ձեր ֆայլերը ներբեռնել ԵՐԿՈՒ ամսվա ընթացքում, քանի որ նշված ժամկետի ավարտից հետո հղումը այլևս հասանելի չի լինի։<br>Կրկին շնորհակալություն համագործակցության համար։<br><br>
+                                            Խնdelays eners Ձdelays eners eners eners ԵՐԿdelays eners eners eners, enarners eners eners eners eners eners eners eners eners eners eners eners <br>Krgineners eners eners eners eners eners.<br><br>
                                             Please download your files within TWO months, as the link will no longer be available after this period.<br>Thank you again for your cooperation.
                                         </p>
                                         <button onclick="this.parentElement.parentElement.remove()" style="padding: 12px 32px; font-size: 16px; font-weight: 600; border-radius: 8px; border: none; background: #646cff; color: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#535bf2'" onmouseout="this.style.background='#646cff'">OK</button>
                                     </div>
                                 </div>
                             `;
-                document.body.appendChild(popup);
-                sessionStorage.setItem('attentionPopupShown', 'true');
-            }
-        })
-            .catch(e => {
-                contentGrid.style.display = 'none';
-                emptyState.style.display = 'none';
-                errorState.style.display = 'block';
-                folderTitleEl.textContent = 'Error';
-                folderMetaEl.textContent = '';
-                breadcrumbsEl.innerHTML = '';
+                            document.body.appendChild(popup);
+                            sessionStorage.setItem('attentionPopupShown', 'true');
+                        }
+                    })
+                    .catch(e => {
+                        contentGrid.style.display = 'none';
+                        emptyState.style.display = 'none';
+                        errorState.style.display = 'block';
+                        folderTitleEl.textContent = 'Error';
+                        folderMetaEl.textContent = '';
+                        breadcrumbsEl.innerHTML = '';
 
-                if (e.message === 'Link expired') {
-                    errorState.innerHTML = `
+                        if (e.message === 'Link expired') {
+                            errorState.innerHTML = `
                             <div style="text-align: left; margin: 0 auto; max-width: 800px;">
                                 <p style="font-size: 16px; line-height: 1.6; color: var(--text-primary);">
-                                    Հարգելի այցելու,<br><br>
-                                    Տեղեկացնում ենք, որ տվյալ հղման գործողության նախատեսված ժամկետն ավարտվել է և այն ներկայումս հասանելի չէ։<br>
-                                    Եթե դեռևս չեք հասցրել ներբեռնել Ձեր ֆայլերը, խնդրում ենք նկատի ունենալ, որ հղման ժամկետի ավարտից հետո 15 օրվա ընթացքում կարող եք ներբեռնել ։<br>
-                                    Ուստի խնդրում ենք կապ հաստատել մեզ հետ։<br><br>
-                                    Հարգանքներով՝<br>
+                                    Հարգելի այdelays,<br><br>
+                                    Տdelays dedelays,<br>
+                                    Eeners delays delays delays delays.<br>
+                                    Oners delays delays delays.<br><br>
+                                    Հargelit՝<br>
                                     PROVIDEO MEDIA HOLDING<br><br>
                                     Dear Visitor,<br><br>
                                     We would like to inform you that the provided link has expired and is currently unavailable.<br>
-                                    If you have not yet managed to download your files, please note that they remain available for download for 15 days following the link’s expiration.<br>
+                                    If you have not yet managed to download your files, please note that they remain available for download for 15 days following the link's expiration.<br>
                                     Therefore, we kindly ask you to contact us.<br><br>
                                     Sincerely,<br>
                                     PROVIDEO MEDIA HOLDING
                                 </p>
                             </div>`;
+                        } else {
+                            errorState.innerHTML = `<h3 style="margin-bottom: 8px; color: var(--danger);">Error</h3><p id="errorText">${escapeHtml(e.message)}</p>`;
+                        }
+                    });
+            }
+
+            // Глобальная функция для вызова из онкликов крошек или карточек
+            window.loadTargetFolder = function (id) {
+                loadFolder(id);
+            };
+
+            // Обработка кнопки "Назад" в браузере (History API)
+            window.addEventListener('popstate', (e) => {
+                if (e.state) {
+                    loadFolder(e.state.subId);
                 } else {
-                    errorState.innerHTML = `<h3 style="margin-bottom: 8px; color: var(--danger);">Error</h3><p id="errorText">${escapeHtml(e.message)}</p>`;
+                    const u = new URLSearchParams(window.location.search);
+                    loadFolder(u.get('subfolder_id'));
                 }
             });
-            }
 
-        // Глобальная функция для вызова из онкликов крошек или карточек
-        window.loadTargetFolder = function (id) {
-            loadFolder(id);
-        };
-
-        // Обработка кнопки "Назад" в браузере (History API)
-        window.addEventListener('popstate', (e) => {
-            if (e.state) {
-                loadFolder(e.state.subId);
-            } else {
-                const u = new URLSearchParams(window.location.search);
-                loadFolder(u.get('subfolder_id'));
-            }
-        });
-
-        // Инициальная загрузка
-        loadFolder(subfolderId);
-        }) ();
+            // Инициальная загрузка
+            loadFolder(subfolderId);
+        })();
     </script>
 </body>
 
