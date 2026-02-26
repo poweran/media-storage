@@ -159,6 +159,15 @@ const videosGrid = document.getElementById('videosGrid');
 const emptyState = document.getElementById('emptyState');
 const videosCount = document.getElementById('videosCount');
 const headerStats = document.getElementById('headerStats');
+const searchInput = document.getElementById('searchInput');
+
+let currentSearchQuery = '';
+if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+        currentSearchQuery = e.target.value.toLowerCase().trim();
+        loadVideos();
+    });
+}
 
 async function loadVideos() {
     if (!videosGrid) return;
@@ -172,8 +181,13 @@ async function loadVideos() {
             fetch('/api/folders' + parentQuery)
         ]);
 
-        const videos = await resVideos.json();
-        const folders = await resFolders.json();
+        let videos = await resVideos.json();
+        let folders = await resFolders.json();
+
+        if (typeof currentSearchQuery !== 'undefined' && currentSearchQuery) {
+            videos = videos.filter(v => v.filename && v.filename.toLowerCase().includes(currentSearchQuery));
+            folders = folders.filter(f => f.name && f.name.toLowerCase().includes(currentSearchQuery));
+        }
 
         if (videos.length === 0 && folders.length === 0) {
             videosGrid.style.display = 'none';

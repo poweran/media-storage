@@ -739,12 +739,23 @@ app.get('/api/share/folder/:shareId/video/:videoId', (req, res) => {
     const { video, error, status } = checkVideoInSharedFolder(req.params.shareId, req.params.videoId);
     if (error) return res.status(status).json({ error });
 
+    const videosInFolder = db.prepare('SELECT id FROM videos WHERE folder_id = ? ORDER BY created_at DESC').all(video.folder_id);
+    const currentIndex = videosInFolder.findIndex(v => v.id === video.id);
+
+    let prev_id = null;
+    let next_id = null;
+
+    if (currentIndex > 0) prev_id = videosInFolder[currentIndex - 1].id;
+    if (currentIndex < videosInFolder.length - 1) next_id = videosInFolder[currentIndex + 1].id;
+
     res.json({
         id: video.id,
         filename: video.filename,
         size: video.size,
         mime_type: video.mime_type,
-        created_at: video.created_at
+        created_at: video.created_at,
+        prev_id,
+        next_id
     });
 });
 
