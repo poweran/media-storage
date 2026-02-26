@@ -64,7 +64,8 @@ function isPublicPath(pathname) {
 }
 
 // Создание папки uploads
-const uploadsDir = path.join(__dirname, 'uploads');
+const storagePath = process.env.STORAGE_PATH ? path.resolve(process.env.STORAGE_PATH) : __dirname;
+const uploadsDir = path.join(storagePath, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }

@@ -1,7 +1,13 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
-const dbPath = path.join(__dirname, 'media.db');
+const storagePath = process.env.STORAGE_PATH ? path.resolve(process.env.STORAGE_PATH) : __dirname;
+if (process.env.STORAGE_PATH && !fs.existsSync(storagePath)) {
+  fs.mkdirSync(storagePath, { recursive: true });
+}
+
+const dbPath = path.join(storagePath, 'media.db');
 const db = new Database(dbPath);
 
 // Включаем WAL и внешние ключи для лучшей производительности и консистентности
@@ -107,7 +113,8 @@ try {
   const tableInfo = db.pragma('table_info(folders)');
   const hasShareId = tableInfo.some(column => column.name === 'share_id');
   if (!hasShareId) {
-    db.exec('ALTER TABLE folders ADD COLUMN share_id TEXT UNIQUE');
+    db.exec('ALTER TABLE folders ADD COLUMN share_id TEXT');
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_folders_share_id ON folders(share_id)');
     console.log('Выполнена миграция БД: добавлена колонка share_id в folders');
   }
 } catch (err) {

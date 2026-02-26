@@ -70,9 +70,29 @@
 
         (function () {
             const pathParts = window.location.pathname.split('/');
-            const shareId = pathParts[pathParts.length - 1];
 
-            fetch('/api/share/' + shareId)
+            // Определяем, это ссылка на видео или видео внутри папки
+            // /s/:shareId
+            // /s/f/:shareId/v/:videoId
+            let apiUrl = '';
+            let streamUrl = '';
+            let qualitiesUrl = '';
+            let filename = '';
+
+            if (pathParts[2] === 'f' && pathParts[4] === 'v') {
+                const shareId = pathParts[3];
+                const videoId = pathParts[5];
+                apiUrl = `/api/share/folder/${shareId}/video/${videoId}`;
+                streamUrl = `/api/share/folder/${shareId}/video/${videoId}/stream`;
+                qualitiesUrl = `/api/share/folder/${shareId}/video/${videoId}/qualities`;
+            } else {
+                const shareId = pathParts[pathParts.length - 1];
+                apiUrl = '/api/share/' + shareId;
+                streamUrl = '/api/share/' + shareId + '/stream';
+                qualitiesUrl = '/api/share/' + shareId + '/qualities';
+            }
+
+            fetch(apiUrl)
                 .then(r => {
                     if (!r.ok) throw new Error('Not found');
                     return r.json();
@@ -84,13 +104,13 @@
                         document.getElementById('shareVideo').style.display = 'none';
                         const img = document.getElementById('shareImage');
                         img.style.display = 'block';
-                        img.src = '/api/share/' + shareId + '/stream';
+                        img.src = streamUrl;
                     } else {
                         document.getElementById('shareImage').style.display = 'none';
                         const vid = document.getElementById('shareVideo');
                         vid.style.display = 'block';
 
-                        fetch('/api/share/' + shareId + '/qualities')
+                        fetch(qualitiesUrl)
                             .then(r => r.json())
                             .then(qualities => {
                                 if (qualities.length > 1) {
@@ -101,7 +121,7 @@
 
                                     qs.style.display = 'block';
                                     let activeQuality = 'original';
-                                    vid.src = '/api/share/' + shareId + '/stream';
+                                    vid.src = streamUrl;
 
                                     const renderMenu = () => {
                                         qm.innerHTML = qualities.map(q => `
@@ -122,7 +142,7 @@
                                                     activeQuality = targetVal;
                                                     qc.textContent = targetLabel;
 
-                                                    vid.src = '/api/share/' + shareId + '/stream' + (targetVal === 'original' ? '' : '?q=' + targetVal);
+                                                    vid.src = streamUrl + (targetVal === 'original' ? '' : '?q=' + targetVal);
                                                     vid.addEventListener('loadedmetadata', function onLoaded() {
                                                         vid.currentTime = currentTime;
                                                         if (!isPaused) vid.play();
@@ -147,18 +167,18 @@
                                         }
                                     });
                                 } else {
-                                    vid.src = '/api/share/' + shareId + '/stream';
+                                    vid.src = streamUrl;
                                 }
                             })
                             .catch(() => {
-                                vid.src = '/api/share/' + shareId + '/stream';
+                                vid.src = streamUrl;
                             });
                     }
 
                     document.getElementById('shareMeta').innerHTML =
                         '<span>' + formatSize(video.size) + '</span> • <span>' +
                         new Date(video.created_at).toLocaleDateString('en-US') + '</span>';
-                    document.getElementById('downloadBtn').href = '/api/share/' + shareId + '/stream';
+                    document.getElementById('downloadBtn').href = streamUrl;
                     document.title = video.filename + ' — ' + (window.siteTitle || 'Provideo Media Holding');
                 })
                 .catch(() => {
