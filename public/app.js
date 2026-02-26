@@ -201,7 +201,24 @@ async function loadVideos() {
         let html = '';
 
         // Рендерим папки
-        html += folders.map(folder => `
+        html += folders.map(folder => {
+            let expireTag = '';
+            if (folder.share_id && folder.share_expires_at) {
+                const expDate = new Date(folder.share_expires_at);
+                const now = new Date();
+                const diffMs = expDate - now;
+                const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+                if (diffMs < 0) {
+                    expireTag = `<span style="color: var(--danger); font-weight: 600;">⚠️ Expired</span>`;
+                } else if (diffDays <= 7) {
+                    expireTag = `<span style="color: var(--danger); font-weight: 600;">⚠️ Exp. in ${diffDays}d</span>`;
+                } else {
+                    expireTag = `<span>Exp. in ${diffDays}d</span>`;
+                }
+            }
+
+            return `
       <div class="video-card folder-card" data-id="${folder.id}">
         <div class="folder-thumb" onclick="navigateTo(${folder.id}, '${escapeJs(folder.name)}')">
           <svg class="folder-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -210,12 +227,36 @@ async function loadVideos() {
         </div>
         <div class="video-info">
           <div class="video-name" title="${escapeHtml(folder.name)}">${escapeHtml(folder.name)}</div>
-          <div class="video-meta">
+          <div class="video-meta" style="flex-wrap: wrap; gap: 8px;">
             <span>Folder</span>
             <span>${new Date(folder.created_at).toLocaleDateString()}</span>
+            ${expireTag}
           </div>
         </div>
         <div class="video-actions">
+          <button class="icon-btn ${folder.share_id ? 'shared' : ''}" onclick="toggleFolderShare(${folder.id})" title="${folder.share_id ? 'Remove link' : 'Share folder'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            ${folder.share_id ? 'Link' : 'Share'}
+          </button>
+          ${folder.share_id ? `
+          <button class="icon-btn" onclick="openExpireModal(${folder.id}, '${folder.share_expires_at}', true)" title="Change expiration">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </button>
+          <button class="icon-btn" onclick="regenerateFolderShareLink(${folder.id})" title="Regenerate link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+          ` : ''}
           <button class="icon-btn" onclick="openRenameFolderModal(${folder.id}, '${escapeJs(folder.name)}')" title="Rename">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -231,7 +272,8 @@ async function loadVideos() {
           </button>
         </div>
       </div>
-        `).join('');
+        `;
+        }).join('');
 
         // Рендерим файлы
         html += videos.map(video => {
@@ -292,7 +334,7 @@ async function loadVideos() {
             ${video.share_id ? 'Link' : 'Share'}
           </button>
           ${video.share_id ? `
-          <button class="icon-btn" onclick="openExpireModal(${video.id}, '${video.share_expires_at}')" title="Change expiration">
+          <button class="icon-btn" onclick="openExpireModal(${video.id}, '${video.share_expires_at}', false)" title="Change expiration">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <circle cx="12" cy="12" r="10"></circle>
               <polyline points="12 6 12 12 16 14"></polyline>
@@ -375,6 +417,52 @@ async function regenerateShareLink(id) {
                 showToast('New link copied to clipboard');
             } catch {
                 prompt('New public link:', url);
+            }
+            loadVideos();
+        } else {
+            showToast('Error generating link', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
+}
+
+async function toggleFolderShare(id) {
+    try {
+        const res = await fetch(`/api/folders/${id}/share`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.share_id) {
+            const url = window.location.origin + '/s/f/' + data.share_id;
+            try {
+                await navigator.clipboard.writeText(url);
+                showToast('Folder link copied to clipboard.');
+            } catch {
+                prompt('Public folder link:', url);
+            }
+        } else {
+            showToast('Public folder link removed');
+        }
+
+        loadVideos();
+    } catch (err) {
+        showToast('Error', 'error');
+    }
+}
+
+async function regenerateFolderShareLink(id) {
+    if (!confirm('Are you sure you want to regenerate the link? The old link will stop working.')) return;
+    try {
+        const res = await fetch(`/api/folders/${id}/share/regenerate`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.share_id) {
+            const url = window.location.origin + '/s/f/' + data.share_id;
+            try {
+                await navigator.clipboard.writeText(url);
+                showToast('New folder link copied to clipboard');
+            } catch {
+                prompt('New public folder link:', url);
             }
             loadVideos();
         } else {
@@ -470,9 +558,11 @@ if (renameModal) {
 // Изменение срока действия (Expiration)
 // ============================
 let expireVideoId = null;
+let isExpireForFolder = false;
 
-function openExpireModal(id, currentDate) {
+function openExpireModal(id, currentDate, isFolder = false) {
     expireVideoId = id;
+    isExpireForFolder = isFolder;
     const modal = document.getElementById('expireModal');
     const input = document.getElementById('expireInput');
     modal.style.display = 'flex';
@@ -502,8 +592,12 @@ async function confirmExpire() {
     // Сохраняем в конец выбранного дня или начало (лучше брать текущее время в этот день или 23:59:59Z)
     const newDateStrFull = newDateStr + 'T23:59:59.000Z';
 
+    const endpoint = isExpireForFolder
+        ? `/api/folders/${expireVideoId}/share/expire`
+        : `/api/videos/${expireVideoId}/share/expire`;
+
     try {
-        const res = await fetch(`/api/videos/${expireVideoId}/share/expire`, {
+        const res = await fetch(endpoint, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ expires_at: newDateStrFull })

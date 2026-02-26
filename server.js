@@ -58,7 +58,8 @@ function isPublicPath(pathname) {
         pathname.startsWith('/s/') ||
         pathname.startsWith('/api/share/') ||
         pathname === '/style.css' ||
-        pathname === '/favicon.ico'
+        pathname === '/favicon.ico' ||
+        pathname === '/app.js'
     );
 }
 
@@ -609,7 +610,171 @@ app.get('/api/share/:shareId', (req, res) => {
     res.json(video);
 });
 
-// Публичная страница
+// ==================== Шаринг папок ====================
+
+// Создать/удалить публичную ссылку для папки
+app.post('/api/folders/:id/share', (req, res) => {
+    const folder = db.prepare('SELECT * FROM folders WHERE id = ?').get(req.params.id);
+    if (!folder) {
+        return res.status(404).json({ error: 'Folder not found' });
+    }
+
+    if (folder.share_id) {
+        // Удаляем ссылку
+        db.prepare('UPDATE folders SET share_id = NULL, share_expires_at = NULL WHERE id = ?').run(req.params.id);
+        res.json({ share_id: null });
+    } else {
+        // Создаём ссылку
+        const shareId = nanoid(10);
+        const expiresAt = getDefaultExpirationDate();
+        db.prepare('UPDATE folders SET share_id = ?, share_expires_at = ? WHERE id = ?').run(shareId, expiresAt, req.params.id);
+        res.json({ share_id: shareId, share_expires_at: expiresAt });
+    }
+});
+
+// Перегенерировать публичную ссылку для папки
+app.post('/api/folders/:id/share/regenerate', (req, res) => {
+    const folder = db.prepare('SELECT * FROM folders WHERE id = ?').get(req.params.id);
+    if (!folder) {
+        return res.status(404).json({ error: 'Folder not found' });
+    }
+
+    const shareId = nanoid(10);
+    const expiresAt = getDefaultExpirationDate();
+    db.prepare('UPDATE folders SET share_id = ?, share_expires_at = ? WHERE id = ?').run(shareId, expiresAt, req.params.id);
+    res.json({ share_id: shareId, share_expires_at: expiresAt });
+});
+
+// Изменить срок действия ссылки для папки
+app.patch('/api/folders/:id/share/expire', (req, res) => {
+    const folder = db.prepare('SELECT * FROM folders WHERE id = ?').get(req.params.id);
+    if (!folder) return res.status(404).json({ error: 'Folder not found' });
+    if (!folder.share_id) return res.status(400).json({ error: 'Folder is not shared' });
+
+    const { expires_at } = req.body;
+    if (!expires_at) return res.status(400).json({ error: 'expires_at is required' });
+
+    db.prepare('UPDATE folders SET share_expires_at = ? WHERE id = ?').run(expires_at, req.params.id);
+    res.json({ success: true, share_expires_at: expires_at });
+});
+
+// Получить содержимое публичной папки
+app.get('/api/share/folder/:shareId', (req, res) => {
+    const rootFolder = db.prepare('SELECT * FROM folders WHERE share_id = ?').get(req.params.shareId);
+    if (!rootFolder) {
+        return res.status(404).json({ error: 'Folder not found' });
+    }
+    if (rootFolder.share_expires_at && new Date() > new Date(rootFolder.share_expires_at)) {
+        return res.status(403).json({ error: 'Link expired' });
+    }
+
+    const targetFolderId = req.query.subfolder_id || rootFolder.id;
+
+    // Рекурсивный CTE для проверки, что requested_id находится внутри дерева shareId
+    const isInsideTree = db.prepare(`
+        WITH RECURSIVE folder_tree(id, parent_id) AS (
+            SELECT id, parent_id FROM folders WHERE id = ?
+            UNION ALL
+            SELECT f.id, f.parent_id FROM folders f
+            JOIN folder_tree ft ON f.parent_id = ft.id
+        )
+        SELECT 1 FROM folder_tree WHERE id = ?
+    `).get(rootFolder.id, targetFolderId);
+
+    if (!isInsideTree) {
+        return res.status(403).json({ error: 'Access denied: folder is outside the shared tree' });
+    }
+
+    const targetFolder = db.prepare('SELECT id, name FROM folders WHERE id = ?').get(targetFolderId);
+    const subfolders = db.prepare('SELECT id, name, created_at FROM folders WHERE parent_id = ? ORDER BY name ASC').all(targetFolderId);
+    const videos = db.prepare('SELECT id, filename, size, mime_type, created_at FROM videos WHERE folder_id = ? ORDER BY created_at DESC').all(targetFolderId);
+
+    // Строим хлебные крошки от targetFolderId вверх до rootFolder
+    const breadcrumbs = [];
+    let currentId = targetFolderId;
+    while (currentId !== rootFolder.id) {
+        const cur = db.prepare('SELECT id, name, parent_id FROM folders WHERE id = ?').get(currentId);
+        if (!cur) break;
+        breadcrumbs.unshift({ id: cur.id, name: cur.name });
+        currentId = cur.parent_id;
+    }
+    breadcrumbs.unshift({ id: rootFolder.id, name: rootFolder.name });
+
+    res.json({ folder: targetFolder, subfolders, videos, breadcrumbs });
+});
+
+// Проверка права доступа к конкретному видео внутри публичной папки
+function checkVideoInSharedFolder(shareId, videoId) {
+    const rootFolder = db.prepare('SELECT * FROM folders WHERE share_id = ?').get(shareId);
+    if (!rootFolder) return { error: 'Folder not found', status: 404 };
+    if (rootFolder.share_expires_at && new Date() > new Date(rootFolder.share_expires_at)) {
+        return { error: 'Link expired', status: 403 };
+    }
+
+    const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(videoId);
+    if (!video) return { error: 'Video not found', status: 404 };
+
+    if (!video.folder_id) return { error: 'Access denied', status: 403 };
+
+    const isInsideTree = db.prepare(`
+        WITH RECURSIVE folder_tree(id, parent_id) AS (
+            SELECT id, parent_id FROM folders WHERE id = ?
+            UNION ALL
+            SELECT f.id, f.parent_id FROM folders f
+            JOIN folder_tree ft ON f.parent_id = ft.id
+        )
+        SELECT 1 FROM folder_tree WHERE id = ?
+    `).get(rootFolder.id, video.folder_id);
+
+    if (!isInsideTree) {
+        return { error: 'Access denied: video is outside the shared tree', status: 403 };
+    }
+
+    return { video, rootFolder };
+}
+
+// Получить информацию о публичном видео в папке
+app.get('/api/share/folder/:shareId/video/:videoId', (req, res) => {
+    const { video, error, status } = checkVideoInSharedFolder(req.params.shareId, req.params.videoId);
+    if (error) return res.status(status).json({ error });
+
+    res.json({
+        id: video.id,
+        filename: video.filename,
+        size: video.size,
+        mime_type: video.mime_type,
+        created_at: video.created_at
+    });
+});
+
+// Получить качества публичного видео в папке
+app.get('/api/share/folder/:shareId/video/:videoId/qualities', (req, res) => {
+    const { video, error, status } = checkVideoInSharedFolder(req.params.shareId, req.params.videoId);
+    if (error) return res.status(status).json({ error });
+    if (!video.mime_type.startsWith('video/')) return res.json([]);
+
+    const ext = path.extname(video.stored_name);
+    const baseName = video.stored_name.replace(ext, '');
+    const available = [{ label: 'Original', value: 'original' }];
+    const qualities = ['1080p', '720p', '480p', '360p'];
+
+    qualities.forEach(q => {
+        if (fs.existsSync(path.join(uploadsDir, `${baseName}_${q}.mp4`))) {
+            available.push({ label: q, value: q });
+        }
+    });
+    res.json(available);
+});
+
+// Стриминг публичного видео из папки
+app.get('/api/share/folder/:shareId/video/:videoId/stream', (req, res) => {
+    const { video, error, status } = checkVideoInSharedFolder(req.params.shareId, req.params.videoId);
+    if (error) return res.status(status).json({ error });
+
+    streamVideo(res, req, video);
+});
+
+// Публичная страница видео
 app.get('/s/:shareId', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE share_id = ?').get(req.params.shareId);
     if (!video) {
@@ -618,6 +783,71 @@ app.get('/s/:shareId', (req, res) => {
     if (video.share_expires_at && new Date() > new Date(video.share_expires_at)) {
         return res.status(403).send('Link expired');
     }
+
+    fs.readFile(path.join(__dirname, 'public', 'share.html'), 'utf8', (err, html) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).send('Server error');
+        }
+
+        const safeFilename = video.filename
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+
+        const siteTitleSetting = db.prepare("SELECT value FROM settings WHERE key = 'site_title'").get();
+        const siteTitle = siteTitleSetting ? siteTitleSetting.value : 'Provideo Media Holding';
+
+        const customHtml = html.replace(
+            '<title>File — Provideo Media Holding</title>',
+            `<title>${safeFilename} — ${siteTitle}</title>\n    <meta property="og:title" content="${safeFilename}">\n    <meta property="og:site_name" content="${siteTitle}">`
+        );
+
+        res.send(customHtml);
+    });
+});
+
+// Публичная страница папки
+app.get('/s/f/:shareId', (req, res) => {
+    const folder = db.prepare('SELECT * FROM folders WHERE share_id = ?').get(req.params.shareId);
+    if (!folder) {
+        return res.status(404).send('Folder not found');
+    }
+    if (folder.share_expires_at && new Date() > new Date(folder.share_expires_at)) {
+        return res.status(403).send('Link expired');
+    }
+
+    fs.readFile(path.join(__dirname, 'public', 'share-folder.html'), 'utf8', (err, html) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).send('Server error');
+        }
+
+        const safeFolderName = folder.name
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+
+        const siteTitleSetting = db.prepare("SELECT value FROM settings WHERE key = 'site_title'").get();
+        const siteTitle = siteTitleSetting ? siteTitleSetting.value : 'Provideo Media Holding';
+
+        const customHtml = html.replace(
+            '<title>Folder — Provideo Media Holding</title>',
+            `<title>${safeFolderName} — ${siteTitle}</title>\n    <meta property="og:title" content="${safeFolderName}">\n    <meta property="og:site_name" content="${siteTitle}">`
+        );
+
+        res.send(customHtml);
+    });
+});
+
+// Публичная страница видео внутри папки
+app.get('/s/f/:shareId/v/:videoId', (req, res) => {
+    const { video, error, status } = checkVideoInSharedFolder(req.params.shareId, req.params.videoId);
+    if (error) return res.status(status).send(error);
 
     fs.readFile(path.join(__dirname, 'public', 'share.html'), 'utf8', (err, html) => {
         if (err) {
