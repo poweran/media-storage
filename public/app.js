@@ -190,6 +190,15 @@ async function loadVideos() {
             </svg>
             ${video.share_id ? 'Link' : 'Share'}
           </button>
+          ${video.share_id ? `
+          <button class="icon-btn" onclick="regenerateShareLink(${video.id})" title="Перегенерировать ссылку">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+          ` : ''}
           <button class="icon-btn" onclick="openRenameModal(${video.id}, '${escapeJs(video.filename)}')" title="Rename">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -240,6 +249,29 @@ async function toggleShare(id) {
         loadVideos();
     } catch (err) {
         showToast('Error', 'error');
+    }
+}
+
+async function regenerateShareLink(id) {
+    if (!confirm('Вы уверены, что хотите перегенерировать ссылку? Старая ссылка перестанет работать.')) return;
+    try {
+        const res = await fetch(`/api/videos/${id}/share/regenerate`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.share_id) {
+            const url = window.location.origin + '/s/' + data.share_id;
+            try {
+                await navigator.clipboard.writeText(url);
+                showToast('Новая ссылка скопирована в буфер обмена');
+            } catch {
+                prompt('Новая публичная ссылка:', url);
+            }
+            loadVideos();
+        } else {
+            showToast('Ошибка генерации ссылки', 'error');
+        }
+    } catch (err) {
+        showToast('Ошибка сети', 'error');
     }
 }
 

@@ -380,6 +380,18 @@ app.post('/api/videos/:id/share', (req, res) => {
     }
 });
 
+// Перегенерировать публичную ссылку
+app.post('/api/videos/:id/share/regenerate', (req, res) => {
+    const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
+    if (!video) {
+        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
+    }
+
+    const shareId = nanoid(10);
+    db.prepare('UPDATE videos SET share_id = ? WHERE id = ?').run(shareId, req.params.id);
+    res.json({ share_id: shareId });
+});
+
 // Стриминг видео по ID
 app.get('/api/stream/:id', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
