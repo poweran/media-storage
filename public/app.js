@@ -63,9 +63,46 @@ if (uploadZone) {
     });
 }
 
+// ============================
+// Состояние папок
+// ============================
+let currentFolderId = null;
+let pathHistory = [];
+
+function navigateTo(folderId, folderName) {
+    if (folderId === null) {
+        currentFolderId = null;
+        pathHistory = [];
+    } else {
+        const idx = pathHistory.findIndex(p => p.id === folderId);
+        if (idx !== -1) {
+            pathHistory = pathHistory.slice(0, idx + 1);
+        } else {
+            pathHistory.push({ id: folderId, name: folderName });
+        }
+        currentFolderId = folderId;
+    }
+    updateBreadcrumbs();
+    loadVideos();
+}
+
+function updateBreadcrumbs() {
+    const bc = document.getElementById('breadcrumbs');
+    if (!bc) return;
+    let html = `<span class="crumb ${currentFolderId === null ? 'active' : ''}" onclick="navigateTo(null, 'Root')">Root</span>`;
+    pathHistory.forEach((p, idx) => {
+        const isActive = idx === pathHistory.length - 1;
+        html += `<span class="crumb ${isActive ? 'active' : ''}" onclick="navigateTo(${p.id}, '${escapeJs(p.name)}')">${escapeHtml(p.name)}</span>`;
+    });
+    bc.innerHTML = html;
+}
+
 function uploadFiles(files) {
     const formData = new FormData();
     files.forEach(file => formData.append('files', file));
+    if (currentFolderId) {
+        formData.append('folder_id', currentFolderId);
+    }
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/upload');
@@ -127,10 +164,18 @@ async function loadVideos() {
     if (!videosGrid) return;
 
     try {
-        const res = await fetch('/api/videos');
-        const videos = await res.json();
+        const query = currentFolderId ? `?folder_id=${currentFolderId}` : '';
+        const parentQuery = currentFolderId ? `?parent_id=${currentFolderId}` : '';
 
-        if (videos.length === 0) {
+        const [resVideos, resFolders] = await Promise.all([
+            fetch('/api/videos' + query),
+            fetch('/api/folders' + parentQuery)
+        ]);
+
+        const videos = await resVideos.json();
+        const folders = await resFolders.json();
+
+        if (videos.length === 0 && folders.length === 0) {
             videosGrid.style.display = 'none';
             emptyState.style.display = 'block';
             videosCount.textContent = '';
@@ -140,18 +185,56 @@ async function loadVideos() {
 
         videosGrid.style.display = 'grid';
         emptyState.style.display = 'none';
-        videosCount.textContent = `${videos.length} files`;
+
+        const totalItems = folders.length + videos.length;
+        videosCount.textContent = `${totalItems} items`;
 
         // Статистика в хедере
         const totalSize = videos.reduce((sum, v) => sum + v.size, 0);
         if (headerStats) {
             headerStats.innerHTML = `
-        <span>${videos.length} files</span>
+        <span>${totalItems} items</span>
         <span>${formatSize(totalSize)}</span>
       `;
         }
 
-        videosGrid.innerHTML = videos.map(video => `
+        let html = '';
+
+        // Рендерим папки
+        html += folders.map(folder => `
+      <div class="video-card folder-card" data-id="${folder.id}">
+        <div class="folder-thumb" onclick="navigateTo(${folder.id}, '${escapeJs(folder.name)}')">
+          <svg class="folder-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+          </svg>
+        </div>
+        <div class="video-info">
+          <div class="video-name" title="${escapeHtml(folder.name)}">${escapeHtml(folder.name)}</div>
+          <div class="video-meta">
+            <span>Folder</span>
+            <span>${new Date(folder.created_at).toLocaleDateString()}</span>
+          </div>
+        </div>
+        <div class="video-actions">
+          <button class="icon-btn" onclick="openRenameFolderModal(${folder.id}, '${escapeJs(folder.name)}')" title="Rename">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
+          <div class="btn-spacer"></div>
+          <button class="icon-btn danger" onclick="deleteFolder(${folder.id}, '${escapeJs(folder.name)}')" title="Delete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+        `).join('');
+
+        // Рендерим файлы
+        html += videos.map(video => `
       <div class="video-card" data-id="${video.id}">
         <div class="video-thumb" onclick="playVideo(${video.id})">
           <div class="play-icon">
@@ -215,6 +298,8 @@ async function loadVideos() {
         </div>
       </div>
     `).join('');
+
+        videosGrid.innerHTML = html;
 
     } catch (err) {
         console.error('List loading error:', err);
@@ -353,6 +438,106 @@ const renameModal = document.getElementById('renameModal');
 if (renameModal) {
     renameModal.addEventListener('click', (e) => {
         if (e.target === renameModal) closeRenameModal();
+    });
+}
+
+// ============================
+// Управление папками
+// ============================
+let isFolderModalRename = false;
+let renameFolderTargetId = null;
+
+function openFolderModal() {
+    isFolderModalRename = false;
+    document.getElementById('folderModal').style.display = 'flex';
+    document.getElementById('folderModalTitle').textContent = 'Create Folder';
+    const input = document.getElementById('folderInput');
+    input.value = '';
+    input.focus();
+}
+
+function openRenameFolderModal(id, currentName) {
+    isFolderModalRename = true;
+    renameFolderTargetId = id;
+    document.getElementById('folderModal').style.display = 'flex';
+    document.getElementById('folderModalTitle').textContent = 'Rename Folder';
+    const input = document.getElementById('folderInput');
+    input.value = currentName;
+    input.focus();
+    input.select();
+}
+
+function closeFolderModal() {
+    document.getElementById('folderModal').style.display = 'none';
+}
+
+async function confirmCreateFolder() {
+    const input = document.getElementById('folderInput');
+    const name = input.value.trim();
+    if (!name) return showToast('Name cannot be empty', 'error');
+
+    if (isFolderModalRename) {
+        try {
+            const res = await fetch(`/api/folders/${renameFolderTargetId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            if (res.ok) {
+                showToast('Folder renamed');
+                closeFolderModal();
+                // Обновляем крошки если мы внутри этой папки
+                const pItem = pathHistory.find(p => p.id === renameFolderTargetId);
+                if (pItem) {
+                    pItem.name = name;
+                    updateBreadcrumbs();
+                }
+                loadVideos();
+            } else {
+                showToast('Error', 'error');
+            }
+        } catch (err) {
+            showToast('Network error', 'error');
+        }
+    } else {
+        try {
+            const res = await fetch('/api/folders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, parent_id: currentFolderId })
+            });
+            if (res.ok) {
+                showToast('Folder created');
+                closeFolderModal();
+                loadVideos();
+            } else {
+                showToast('Error', 'error');
+            }
+        } catch (err) {
+            showToast('Network error', 'error');
+        }
+    }
+}
+
+async function deleteFolder(id, name) {
+    if (!confirm(`Delete folder "${name}" and all its content?`)) return;
+    try {
+        const res = await fetch(`/api/folders/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Folder deleted');
+            loadVideos();
+        } else {
+            showToast('Deletion error', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
+}
+
+const folderModal = document.getElementById('folderModal');
+if (folderModal) {
+    folderModal.addEventListener('click', (e) => {
+        if (e.target === folderModal) closeFolderModal();
     });
 }
 

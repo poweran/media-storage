@@ -148,6 +148,19 @@
     </div>
   </div>
 
+  <!-- Create Folder Modal -->
+  <div class="modal-overlay" id="folderModal" style="display: none;">
+    <div class="modal">
+      <h3 id="folderModalTitle">Folder</h3>
+      <input type="text" class="modal-input" id="folderInput" placeholder="Folder name"
+        onkeydown="if(event.key === 'Enter') confirmCreateFolder(); if(event.key === 'Escape') closeFolderModal();">
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel" onclick="closeFolderModal()">Cancel</button>
+        <button class="modal-btn modal-btn-confirm" onclick="confirmCreateFolder()">Save</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast notifications -->
   <div class="toast-container" id="toastContainer"></div>
 
