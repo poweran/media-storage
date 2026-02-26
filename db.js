@@ -40,6 +40,8 @@ db.exec(`
     name TEXT NOT NULL,
     parent_id INTEGER DEFAULT NULL,
     uploader_username TEXT NOT NULL,
+    share_id TEXT UNIQUE,
+    share_expires_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(parent_id) REFERENCES folders(id) ON DELETE CASCADE
   )
@@ -98,6 +100,30 @@ try {
   }
 } catch (err) {
   console.error('Ошибка при миграции БД (share_expires_at):', err);
+}
+
+// Миграция: добавляем колонку share_id в folders
+try {
+  const tableInfo = db.pragma('table_info(folders)');
+  const hasShareId = tableInfo.some(column => column.name === 'share_id');
+  if (!hasShareId) {
+    db.exec('ALTER TABLE folders ADD COLUMN share_id TEXT UNIQUE');
+    console.log('Выполнена миграция БД: добавлена колонка share_id в folders');
+  }
+} catch (err) {
+  console.error('Ошибка при миграции БД (share_id в folders):', err);
+}
+
+// Миграция: добавляем колонку share_expires_at в folders
+try {
+  const tableInfo = db.pragma('table_info(folders)');
+  const hasShareExpiresAt = tableInfo.some(column => column.name === 'share_expires_at');
+  if (!hasShareExpiresAt) {
+    db.exec('ALTER TABLE folders ADD COLUMN share_expires_at DATETIME');
+    console.log('Выполнена миграция БД: добавлена колонка share_expires_at в folders');
+  }
+} catch (err) {
+  console.error('Ошибка при миграции БД (share_expires_at в folders):', err);
 }
 
 module.exports = db;

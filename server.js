@@ -424,6 +424,15 @@ app.post('/api/upload', upload.array('files', 50), (req, res) => {
     }
 });
 
+// Получить информацию о конкретном видео
+app.get('/api/videos/:id', (req, res) => {
+    const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
+    if (!video) {
+        return res.status(404).json({ error: 'Video not found' });
+    }
+    res.json(video);
+});
+
 // Удалить видео
 app.delete('/api/videos/:id', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);

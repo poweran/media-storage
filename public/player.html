@@ -71,10 +71,12 @@
             const id = params.get('id');
             if (!id) { window.location.href = '/'; return; }
 
-            fetch('/api/videos')
-                .then(r => r.json())
-                .then(videos => {
-                    const video = videos.find(v => v.id == id);
+            fetch('/api/videos/' + id)
+                .then(r => {
+                    if (!r.ok) throw new Error('Not found');
+                    return r.json();
+                })
+                .then(video => {
                     if (!video) { window.location.href = '/'; return; }
 
                     document.getElementById('playerTitle').textContent = video.filename;
