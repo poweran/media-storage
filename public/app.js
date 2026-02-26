@@ -559,7 +559,7 @@ function escapeJs(str) {
 // ============================
 async function logout() {
     await fetch('/api/logout', { method: 'POST' });
-    window.location.href = '/login.html';
+    window.location.href = '/secure-admin';
 }
 
 // ============================

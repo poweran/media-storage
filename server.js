@@ -51,7 +51,8 @@ try {
 // Публичные пути (не требуют авторизации)
 function isPublicPath(pathname) {
     return (
-        pathname === '/login.html' ||
+        pathname === '/secure-admin' ||
+        pathname === '/secure-admin.html' ||
         pathname === '/api/login' ||
         pathname.startsWith('/s/') ||
         pathname.startsWith('/api/share/') ||
@@ -185,6 +186,9 @@ app.use((req, res, next) => {
 
 // Статические файлы (после middleware авторизации)
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Роут для страницы входа
+app.get('/secure-admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'secure-admin.html')));
 
 // ==================== Аутентификация ====================
 
