@@ -37,21 +37,21 @@
 
         <main class="player-main" style="position: relative;">
             <video id="videoPlayer" controls autoplay style="display: none;">
-                Ձեր դիտարկիչը չի աջակցում վիդեոյի նվագարկումը։
+                Your browser does not support video playback.
             </video>
             <img id="imageViewer"
                 style="display: none; max-width: 100%; max-height: 100vh; object-fit: contain; margin: 0 auto; display: block;"
                 alt="Photo">
 
             <div id="qualitySelector" class="quality-wrapper" style="display: none;">
-                <button class="quality-btn" id="qualityBtn" title="Որակ">
+                <button class="quality-btn" id="qualityBtn" title="Quality">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                         <circle cx="12" cy="12" r="3"></circle>
                         <path
                             d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
                         </path>
                     </svg>
-                    <span id="qualityCurrent">Օրիգինալ</span>
+                    <span id="qualityCurrent">Original</span>
                 </button>
                 <div class="quality-menu" id="qualityMenu"></div>
             </div>

@@ -2,10 +2,10 @@
 // Утилиты
 // ============================
 function formatSize(bytes) {
-    if (bytes < 1024) return bytes + ' Б';
-    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' КБ';
-    if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' МБ';
-    return (bytes / 1073741824).toFixed(2) + ' ГБ';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+    return (bytes / 1073741824).toFixed(2) + ' GB';
 }
 
 function showToast(message, type = 'success') {
@@ -191,7 +191,7 @@ async function loadVideos() {
             ${video.share_id ? 'Link' : 'Share'}
           </button>
           ${video.share_id ? `
-          <button class="icon-btn" onclick="regenerateShareLink(${video.id})" title="Перегенерировать ссылку">
+          <button class="icon-btn" onclick="regenerateShareLink(${video.id})" title="Regenerate link">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <polyline points="23 4 23 10 17 10"></polyline>
               <polyline points="1 20 1 14 7 14"></polyline>
@@ -253,7 +253,7 @@ async function toggleShare(id) {
 }
 
 async function regenerateShareLink(id) {
-    if (!confirm('Вы уверены, что хотите перегенерировать ссылку? Старая ссылка перестанет работать.')) return;
+    if (!confirm('Are you sure you want to regenerate the link? The old link will stop working.')) return;
     try {
         const res = await fetch(`/api/videos/${id}/share/regenerate`, { method: 'POST' });
         const data = await res.json();
@@ -262,16 +262,16 @@ async function regenerateShareLink(id) {
             const url = window.location.origin + '/s/' + data.share_id;
             try {
                 await navigator.clipboard.writeText(url);
-                showToast('Новая ссылка скопирована в буфер обмена');
+                showToast('New link copied to clipboard');
             } catch {
-                prompt('Новая публичная ссылка:', url);
+                prompt('New public link:', url);
             }
             loadVideos();
         } else {
-            showToast('Ошибка генерации ссылки', 'error');
+            showToast('Error generating link', 'error');
         }
     } catch (err) {
-        showToast('Ошибка сети', 'error');
+        showToast('Network error', 'error');
     }
 }
 
@@ -378,6 +378,66 @@ async function logout() {
 }
 
 // ============================
+// Добавление пользователя (Только для Admin)
+// ============================
+function openAddUserModal() {
+    const modal = document.getElementById('addUserModal');
+    const inputUser = document.getElementById('newUsernameInput');
+    const inputPass = document.getElementById('newUserPasswordInput');
+    modal.style.display = 'flex';
+    inputUser.value = '';
+    inputPass.value = '';
+    inputUser.focus();
+}
+
+function closeAddUserModal() {
+    document.getElementById('addUserModal').style.display = 'none';
+}
+
+async function confirmAddUser() {
+    const username = document.getElementById('newUsernameInput').value.trim();
+    const password = document.getElementById('newUserPasswordInput').value;
+
+    if (!username || !password) {
+        showToast('Username and password are required', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            showToast('User created successfully');
+            closeAddUserModal();
+        } else {
+            showToast(data.error || 'Error creating user', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
+}
+
+const addUserModal = document.getElementById('addUserModal');
+if (addUserModal) {
+    addUserModal.addEventListener('click', (e) => {
+        if (e.target === addUserModal) closeAddUserModal();
+    });
+}
+const addUserInput = document.getElementById('newUserPasswordInput');
+if (addUserInput) {
+    addUserInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmAddUser();
+        if (e.key === 'Escape') closeAddUserModal();
+    });
+}
+
+// ============================
 // Инициализация
 // ============================
 async function loadUserProfile() {
@@ -387,6 +447,11 @@ async function loadUserProfile() {
             const data = await res.json();
             const display = document.getElementById('usernameDisplay');
             if (display) display.textContent = data.username;
+
+            if (data.username === 'admin') {
+                const addUserBtn = document.getElementById('addUserBtn');
+                if (addUserBtn) addUserBtn.style.display = 'inline-flex';
+            }
         }
     } catch {
         // ignore

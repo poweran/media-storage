@@ -33,6 +33,15 @@
           </svg>
           <span id="usernameDisplay">...</span>
         </div>
+        <button class="icon-btn" id="addUserBtn" onclick="openAddUserModal()" title="Add User"
+          style="margin-left: 12px; display: none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="8.5" cy="7" r="4"></circle>
+            <line x1="20" y1="8" x2="20" y2="14"></line>
+            <line x1="23" y1="11" x2="17" y2="11"></line>
+          </svg>
+        </button>
         <button class="icon-btn" onclick="logout()" title="Logout" style="margin-left: 12px;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -82,8 +91,23 @@
     <!-- Video Grid -->
     <section class="videos-section">
       <div class="videos-header">
-        <h2 class="videos-title">My files</h2>
-        <div class="videos-count" id="videosCount"></div>
+        <div class="videos-title-area" style="display: flex; flex-direction: column; gap: 4px;">
+          <h2 class="videos-title" style="margin-bottom: 0;">My files</h2>
+          <div class="breadcrumbs" id="breadcrumbs">
+            <span class="crumb active" onclick="navigateTo(null, 'Root')">Root</span>
+          </div>
+        </div>
+        <div class="videos-actions" style="display: flex; align-items: center; gap: 16px;">
+          <button class="icon-btn" onclick="openFolderModal()" title="Create Folder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              <line x1="12" y1="11" x2="12" y2="17"></line>
+              <line x1="9" y1="14" x2="15" y2="14"></line>
+            </svg>
+            New Folder
+          </button>
+          <div class="videos-count" id="videosCount"></div>
+        </div>
       </div>
       <div class="videos-grid" id="videosGrid">
         <!-- Видео карточки рендерятся через JS -->
@@ -107,6 +131,19 @@
       <div class="modal-actions">
         <button class="modal-btn modal-btn-cancel" onclick="closeRenameModal()">Cancel</button>
         <button class="modal-btn modal-btn-confirm" onclick="confirmRename()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add User Modal -->
+  <div class="modal-overlay" id="addUserModal" style="display: none;">
+    <div class="modal">
+      <h3>Add New User</h3>
+      <input type="text" class="modal-input" id="newUsernameInput" placeholder="Username" style="margin-bottom: 12px;">
+      <input type="password" class="modal-input" id="newUserPasswordInput" placeholder="Password">
+      <div class="modal-actions" style="margin-top: 16px;">
+        <button class="modal-btn modal-btn-cancel" onclick="closeAddUserModal()">Cancel</button>
+        <button class="modal-btn modal-btn-confirm" onclick="confirmAddUser()">Create</button>
       </div>
     </div>
   </div>

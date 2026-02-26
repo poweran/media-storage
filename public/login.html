@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="hy">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Մուտք — Media Storage</title>
+    <title>Login — Provideo Media Holding</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -150,48 +150,25 @@
             </div>
 
             <div class="login-tabs">
-                <button class="login-tab active" id="tabLogin">Մուտք</button>
-                <button class="login-tab" id="tabRegister">Գրանցում</button>
+                <button class="login-tab active" id="tabLogin" style="cursor: default;">Login</button>
             </div>
 
             <form id="authForm">
-                <div class="login-error" id="loginError">Սխալ անուն կամ գաղտնաբառ</div>
+                <div class="login-error" id="loginError">Invalid username or password</div>
                 <div class="login-field">
-                    <label for="username">Անուն (Օգտանուն)</label>
-                    <input type="text" id="username" name="username" placeholder="Մուտքագրեք անունը" autofocus required>
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" placeholder="Enter username" autofocus required>
                 </div>
                 <div class="login-field">
-                    <label for="password">Գաղտնաբառ</label>
-                    <input type="password" id="password" name="password" placeholder="Մուտքագրեք գաղտնաբառը" required>
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="Enter password" required>
                 </div>
-                <button type="submit" class="login-submit" id="submitBtn">Մուտք</button>
+                <button type="submit" class="login-submit" id="submitBtn">Login</button>
             </form>
         </div>
     </div>
     <script>
-        let isLogin = true;
-        const tabLogin = document.getElementById('tabLogin');
-        const tabRegister = document.getElementById('tabRegister');
-        const submitBtn = document.getElementById('submitBtn');
         const errorEl = document.getElementById('loginError');
-
-        tabLogin.addEventListener('click', () => {
-            isLogin = true;
-            tabLogin.classList.add('active');
-            tabRegister.classList.remove('active');
-            submitBtn.textContent = 'Մուտք';
-            errorEl.style.display = 'none';
-            document.title = 'Մուտք — Media Storage';
-        });
-
-        tabRegister.addEventListener('click', () => {
-            isLogin = false;
-            tabRegister.classList.add('active');
-            tabLogin.classList.remove('active');
-            submitBtn.textContent = 'Գրանցվել';
-            errorEl.style.display = 'none';
-            document.title = 'Գրանցում — Media Storage';
-        });
 
         document.getElementById('authForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -199,7 +176,7 @@
             const password = document.getElementById('password').value;
             errorEl.style.display = 'none';
 
-            const endpoint = isLogin ? '/api/login' : '/api/register';
+            const endpoint = '/api/login';
 
             try {
                 const res = await fetch(endpoint, {
@@ -213,15 +190,13 @@
                     window.location.href = redirect;
                 } else {
                     const data = await res.json();
-                    errorEl.textContent = data.error || 'Սխալ';
+                    errorEl.textContent = data.error || 'Error';
                     errorEl.style.display = 'block';
-                    if (isLogin) {
-                        document.getElementById('password').value = '';
-                        document.getElementById('password').focus();
-                    }
+                    document.getElementById('password').value = '';
+                    document.getElementById('password').focus();
                 }
             } catch (err) {
-                errorEl.textContent = 'Ցանցի սխալ';
+                errorEl.textContent = 'Network error';
                 errorEl.style.display = 'block';
             }
         });

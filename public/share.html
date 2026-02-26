@@ -26,12 +26,12 @@
         <main class="share-main">
             <div class="share-player-wrap" style="position: relative;">
                 <video id="shareVideo" controls autoplay style="display: none;">
-                    Ձեր դիտարկիչը չի աջակցում վիդեոյի նվագարկումը։
+                    Your browser does not support video playback.
                 </video>
                 <img id="shareImage" style="display: none; width: 100%; height: 100%; object-fit: contain;" alt="Photo">
 
                 <div id="qualitySelector" class="quality-wrapper" style="display: none; bottom: 64px; right: 16px;">
-                    <button class="quality-btn" id="qualityBtn" title="Որակ">
+                    <button class="quality-btn" id="qualityBtn" title="Quality">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"
                             height="16">
                             <circle cx="12" cy="12" r="3"></circle>
@@ -39,7 +39,7 @@
                                 d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
                             </path>
                         </svg>
-                        <span id="qualityCurrent">Օրիգինալ</span>
+                        <span id="qualityCurrent">Original</span>
                     </button>
                     <div class="quality-menu" id="qualityMenu"></div>
                 </div>
@@ -61,10 +61,10 @@
 
     <script>
         function formatSize(bytes) {
-            if (bytes < 1024) return bytes + ' Б';
-            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' КБ';
-            if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' МБ';
-            return (bytes / 1073741824).toFixed(2) + ' ГБ';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+            return (bytes / 1073741824).toFixed(2) + ' GB';
         }
 
         (function () {

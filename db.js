@@ -4,8 +4,9 @@ const path = require('path');
 const dbPath = path.join(__dirname, 'media.db');
 const db = new Database(dbPath);
 
-// Включаем WAL для лучшей производительности
+// Включаем WAL и внешние ключи для лучшей производительности и консистентности
 db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
 
 // Создаём таблицу пользователей
 db.exec(`
@@ -31,6 +32,18 @@ db.exec(`
   )
 `);
 
+// Создаём таблицу папок
+db.exec(`
+  CREATE TABLE IF NOT EXISTS folders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    parent_id INTEGER DEFAULT NULL,
+    uploader_username TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(parent_id) REFERENCES folders(id) ON DELETE CASCADE
+  )
+`);
+
 // Миграция: добавляем колонку uploader_username, если её нет
 try {
   const tableInfo = db.pragma('table_info(videos)');
@@ -40,7 +53,19 @@ try {
     console.log('Выполнена миграция БД: добавлена колонка uploader_username в videos');
   }
 } catch (err) {
-  console.error('Ошибка при миграции БД:', err);
+  console.error('Ошибка при миграции БД (uploader_username):', err);
+}
+
+// Миграция: добавляем колонку folder_id, если её нет
+try {
+  const tableInfo = db.pragma('table_info(videos)');
+  const hasFolder = tableInfo.some(column => column.name === 'folder_id');
+  if (!hasFolder) {
+    db.exec('ALTER TABLE videos ADD COLUMN folder_id INTEGER DEFAULT NULL REFERENCES folders(id) ON DELETE CASCADE');
+    console.log('Выполнена миграция БД: добавлена колонка folder_id в videos');
+  }
+} catch (err) {
+  console.error('Ошибка при миграции БД (folder_id):', err);
 }
 
 module.exports = db;

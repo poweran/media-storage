@@ -53,7 +53,6 @@ function isPublicPath(pathname) {
     return (
         pathname === '/login.html' ||
         pathname === '/api/login' ||
-        pathname === '/api/register' ||
         pathname.startsWith('/s/') ||
         pathname.startsWith('/api/share/') ||
         pathname === '/style.css' ||
@@ -177,11 +176,11 @@ app.use((req, res, next) => {
         return next();
     }
 
-    // Для API — 401, для страниц — редирект на логин
+    // Для API — 401, для страниц — скрываем страницу логина (отдаем 404)
     if (req.path.startsWith('/api/')) {
-        return res.status(401).json({ error: 'Պահանջվում է թույլտվություն' });
+        return res.status(401).json({ error: 'Authorization required' });
     }
-    return res.redirect('/login.html?redirect=' + encodeURIComponent(req.originalUrl));
+    return res.status(404).send('Not found');
 });
 
 // Статические файлы (после middleware авторизации)
@@ -195,12 +194,12 @@ app.get('/api/me', (req, res) => res.json({ username: req.user.username }));
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
-        return res.status(400).json({ error: 'Մուտքագրեք անունը և գաղտնաբառը' });
+        return res.status(400).json({ error: 'Username and password are required' });
     }
 
     const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
     if (!user) {
-        return res.status(401).json({ error: 'Սխալ անուն կամ գաղտնաբառ' });
+        return res.status(401).json({ error: 'Invalid username or password' });
     }
 
     const match = await bcrypt.compare(password, user.password_hash);
@@ -213,36 +212,34 @@ app.post('/api/login', async (req, res) => {
         });
         res.json({ success: true });
     } else {
-        res.status(401).json({ error: 'Սխալ անուն կամ գաղտնաբառ' });
+        res.status(401).json({ error: 'Invalid username or password' });
     }
 });
 
-// Регистрация
+// Регистрация (только для admin)
 app.post('/api/register', async (req, res) => {
+    if (!req.user || req.user.username !== 'admin') {
+        return res.status(403).json({ error: 'Access denied: only admin can register new users' });
+    }
+
     const { username, password } = req.body;
     if (!username || !password) {
-        return res.status(400).json({ error: 'Մուտքագրեք անունը և գաղտնաբառը' });
+        return res.status(400).json({ error: 'Username and password are required' });
     }
 
     const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
     if (existing) {
-        return res.status(400).json({ error: 'Այդ անունով օգտատեր արդեն գոյություն ունի' });
+        return res.status(400).json({ error: 'User with this username already exists' });
     }
 
     try {
         const hash = await bcrypt.hash(password, 10);
         db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, hash);
 
-        const token = generateToken(username);
-        res.cookie('auth_token', token, {
-            httpOnly: true,
-            maxAge: TOKEN_MAX_AGE,
-            sameSite: 'lax'
-        });
         res.json({ success: true });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Գրանցման սխալ' });
+        res.status(500).json({ error: 'Registration error' });
     }
 });
 
@@ -254,9 +251,93 @@ app.post('/api/logout', (req, res) => {
 
 // ==================== API ====================
 
-// Список всех видео
+// Список всех папок (только для авторизованного пользователя)
+app.get('/api/folders', (req, res) => {
+    const parentId = req.query.parent_id || null;
+    let folders;
+    if (parentId) {
+        folders = db.prepare('SELECT * FROM folders WHERE parent_id = ? ORDER BY name ASC').all(parentId);
+    } else {
+        folders = db.prepare('SELECT * FROM folders WHERE parent_id IS NULL ORDER BY name ASC').all();
+    }
+    // Так как у нас нет строгого ограничения на просмотр "чужих" папок (судя по `videos`),
+    // но можно отфильтровать или просто отдаем все. 
+    // Поскольку у нас загружаются и шарятся все видео вместе, папки тоже общие.
+    res.json(folders);
+});
+
+// Создать папку
+app.post('/api/folders', (req, res) => {
+    const { name, parent_id } = req.body;
+    if (!name) return res.status(400).json({ error: 'Folder name is required' });
+
+    try {
+        const info = db.prepare('INSERT INTO folders (name, parent_id, uploader_username) VALUES (?, ?, ?)')
+            .run(name, parent_id || null, req.user.username);
+        res.json({ id: info.lastInsertRowid, name, parent_id: parent_id || null, uploader_username: req.user.username });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to create folder' });
+    }
+});
+
+// Переименовать папку
+app.patch('/api/folders/:id', (req, res) => {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Folder name is required' });
+
+    const result = db.prepare('UPDATE folders SET name = ? WHERE id = ?').run(name, req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: 'Folder not found' });
+    res.json({ success: true });
+});
+
+// Удалить папку (и всё её содержимое)
+// Поскольку PRAGMA foreign_keys = ON и мы настроили CASCADE для parent_id и folder_id,
+// БД автоматически удалит вложенные папки и записи о видео. 
+// НО нам нужно также удалить файлы с диска!
+app.delete('/api/folders/:id', (req, res) => {
+    // Рекурсивный сбор всех видео в этой папке и подпапках
+    function deleteFolderContent(folderId) {
+        // Получаем все видео в этой папке
+        const videos = db.prepare('SELECT * FROM videos WHERE folder_id = ?').all(folderId);
+        videos.forEach(video => {
+            try {
+                const ext = path.extname(video.stored_name);
+                const baseName = video.stored_name.replace(ext, '');
+                const filesToRemove = [
+                    video.stored_name,
+                    `${baseName}_1080p.mp4`,
+                    `${baseName}_720p.mp4`,
+                    `${baseName}_480p.mp4`,
+                    `${baseName}_360p.mp4`,
+                ];
+                filesToRemove.forEach(f => {
+                    const fp = path.join(uploadsDir, f);
+                    if (fs.existsSync(fp)) fs.unlinkSync(fp);
+                });
+            } catch (err) { }
+        });
+
+        // Получаем подпапки и рекурсивно удаляем их содержимое
+        const subfolders = db.prepare('SELECT id FROM folders WHERE parent_id = ?').all(folderId);
+        subfolders.forEach(sub => deleteFolderContent(sub.id));
+    }
+
+    deleteFolderContent(req.params.id);
+
+    // Удаляем саму папку (каскадное удаление в БД почистит всё остальное в таблицах)
+    db.prepare('DELETE FROM folders WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+});
+
+// Список видео в конкретной папке (или в корне)
 app.get('/api/videos', (req, res) => {
-    const videos = db.prepare('SELECT * FROM videos ORDER BY created_at DESC').all();
+    const folderId = req.query.folder_id || null;
+    let videos;
+    if (folderId) {
+        videos = db.prepare('SELECT * FROM videos WHERE folder_id = ? ORDER BY created_at DESC').all(folderId);
+    } else {
+        videos = db.prepare('SELECT * FROM videos WHERE folder_id IS NULL ORDER BY created_at DESC').all();
+    }
     res.json(videos);
 });
 
@@ -266,9 +347,11 @@ app.post('/api/upload', upload.array('files', 50), (req, res) => {
         return res.status(400).json({ error: 'No files selected' });
     }
 
+    const folderId = req.body.folder_id || null;
+
     const insert = db.prepare(`
-    INSERT INTO videos (filename, stored_name, size, mime_type, uploader_username)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO videos (filename, stored_name, size, mime_type, uploader_username, folder_id)
+    VALUES (?, ?, ?, ?, ?, ?)
   `);
 
     const insertMany = db.transaction((files) => {
@@ -279,7 +362,8 @@ app.post('/api/upload', upload.array('files', 50), (req, res) => {
                 file.filename,
                 file.size,
                 file.mimetype,
-                req.user.username
+                req.user.username,
+                folderId
             );
             results.push({
                 id: info.lastInsertRowid,
@@ -287,7 +371,8 @@ app.post('/api/upload', upload.array('files', 50), (req, res) => {
                 stored_name: file.filename,
                 size: file.size,
                 mime_type: file.mimetype,
-                uploader_username: req.user.username
+                uploader_username: req.user.username,
+                folder_id: folderId
             });
         }
         return results;
@@ -356,7 +441,7 @@ app.patch('/api/videos/:id', (req, res) => {
         .run(filename, req.params.id);
 
     if (result.changes === 0) {
-        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
+        return res.status(404).json({ error: 'Video not found' });
     }
     res.json({ success: true });
 });
@@ -365,7 +450,7 @@ app.patch('/api/videos/:id', (req, res) => {
 app.post('/api/videos/:id/share', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
     if (!video) {
-        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
+        return res.status(404).json({ error: 'Video not found' });
     }
 
     if (video.share_id) {
@@ -384,7 +469,7 @@ app.post('/api/videos/:id/share', (req, res) => {
 app.post('/api/videos/:id/share/regenerate', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
     if (!video) {
-        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
+        return res.status(404).json({ error: 'Video not found' });
     }
 
     const shareId = nanoid(10);
@@ -396,7 +481,7 @@ app.post('/api/videos/:id/share/regenerate', (req, res) => {
 app.get('/api/stream/:id', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
     if (!video) {
-        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
+        return res.status(404).json({ error: 'Video not found' });
     }
     streamVideo(res, req, video);
 });
@@ -405,7 +490,7 @@ app.get('/api/stream/:id', (req, res) => {
 app.get('/api/share/:shareId/stream', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE share_id = ?').get(req.params.shareId);
     if (!video) {
-        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
+        return res.status(404).json({ error: 'Video not found' });
     }
     streamVideo(res, req, video);
 });
@@ -413,12 +498,12 @@ app.get('/api/share/:shareId/stream', (req, res) => {
 // Получение доступных качеств видео
 app.get('/api/videos/:id/qualities', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
-    if (!video) return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
+    if (!video) return res.status(404).json({ error: 'Video not found' });
     if (!video.mime_type.startsWith('video/')) return res.json([]);
 
     const ext = path.extname(video.stored_name);
     const baseName = video.stored_name.replace(ext, '');
-    const available = [{ label: 'Օրիգինալ', value: 'original' }];
+    const available = [{ label: 'Original', value: 'original' }];
     const qualities = ['1080p', '720p', '480p', '360p'];
 
     qualities.forEach(q => {
@@ -431,12 +516,12 @@ app.get('/api/videos/:id/qualities', (req, res) => {
 
 app.get('/api/share/:shareId/qualities', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE share_id = ?').get(req.params.shareId);
-    if (!video) return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
+    if (!video) return res.status(404).json({ error: 'Video not found' });
     if (!video.mime_type.startsWith('video/')) return res.json([]);
 
     const ext = path.extname(video.stored_name);
     const baseName = video.stored_name.replace(ext, '');
-    const available = [{ label: 'Օրիգինալ', value: 'original' }];
+    const available = [{ label: 'Original', value: 'original' }];
     const qualities = ['1080p', '720p', '480p', '360p'];
 
     qualities.forEach(q => {
@@ -452,7 +537,7 @@ app.get('/api/share/:shareId', (req, res) => {
     const video = db.prepare('SELECT id, filename, size, mime_type, created_at FROM videos WHERE share_id = ?')
         .get(req.params.shareId);
     if (!video) {
-        return res.status(404).json({ error: 'Վիդեոն չի գտնվել' });
+        return res.status(404).json({ error: 'Video not found' });
     }
     res.json(video);
 });
@@ -461,7 +546,7 @@ app.get('/api/share/:shareId', (req, res) => {
 app.get('/s/:shareId', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE share_id = ?').get(req.params.shareId);
     if (!video) {
-        return res.status(404).send('Վիդեոն չի գտնվել');
+        return res.status(404).send('Video not found');
     }
 
     fs.readFile(path.join(__dirname, 'public', 'share.html'), 'utf8', (err, html) => {
