@@ -9,6 +9,64 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
+    <style>
+        .nav-arrow {
+            display: none;
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(8px);
+            transition: background 0.2s, transform 0.2s;
+        }
+
+        .nav-arrow:hover {
+            background: rgba(100, 108, 255, 0.6);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .nav-arrow.prev {
+            left: 16px;
+        }
+
+        .nav-arrow.next {
+            right: 16px;
+        }
+
+        .nav-arrow.visible {
+            display: flex;
+        }
+
+        .swipe-hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.6);
+            color: rgba(255, 255, 255, 0.7);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+            backdrop-filter: blur(4px);
+        }
+
+        .swipe-hint.show {
+            opacity: 1;
+        }
+    </style>
 </head>
 
 <body>
@@ -22,6 +80,19 @@
                 <span class="logo-text">Provideo Media Holding</span>
             </div>
         </header>
+
+        <!-- Navigation arrows -->
+        <button class="nav-arrow prev" id="navPrev" title="Previous">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <polyline points="15 18 9 12 15 6" />
+            </svg>
+        </button>
+        <button class="nav-arrow next" id="navNext" title="Next">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <polyline points="9 6 15 12 9 18" />
+            </svg>
+        </button>
+        <div class="swipe-hint" id="swipeHint">← Swipe to navigate →</div>
 
         <main class="share-main">
             <div class="share-player-wrap" style="position: relative;">
@@ -78,13 +149,16 @@
             let streamUrl = '';
             let qualitiesUrl = '';
             let filename = '';
+            let isFolderVideo = false;
+            let folderShareId = '';
 
             if (pathParts[2] === 'f' && pathParts[4] === 'v') {
-                const shareId = pathParts[3];
+                isFolderVideo = true;
+                folderShareId = pathParts[3];
                 const videoId = pathParts[5];
-                apiUrl = `/api/share/folder/${shareId}/video/${videoId}`;
-                streamUrl = `/api/share/folder/${shareId}/video/${videoId}/stream`;
-                qualitiesUrl = `/api/share/folder/${shareId}/video/${videoId}/qualities`;
+                apiUrl = `/api/share/folder/${folderShareId}/video/${videoId}`;
+                streamUrl = `/api/share/folder/${folderShareId}/video/${videoId}/stream`;
+                qualitiesUrl = `/api/share/folder/${folderShareId}/video/${videoId}/qualities`;
             } else {
                 const shareId = pathParts[pathParts.length - 1];
                 apiUrl = '/api/share/' + shareId;
@@ -185,6 +259,57 @@
                         new Date(video.created_at).toLocaleDateString('en-US') + '</span>';
                     document.getElementById('downloadBtn').href = streamUrl;
                     document.title = video.filename + ' — ' + (window.siteTitle || 'Provideo Media Holding');
+
+                    // ========== Навигация по свайпу / стрелкам ==========
+                    if (isFolderVideo) {
+                        const navPrev = document.getElementById('navPrev');
+                        const navNext = document.getElementById('navNext');
+                        const swipeHint = document.getElementById('swipeHint');
+
+                        function navigateTo(targetId) {
+                            window.location.href = `/s/f/${folderShareId}/v/${targetId}`;
+                        }
+
+                        if (video.prev_id) {
+                            navPrev.classList.add('visible');
+                            navPrev.addEventListener('click', () => navigateTo(video.prev_id));
+                        }
+                        if (video.next_id) {
+                            navNext.classList.add('visible');
+                            navNext.addEventListener('click', () => navigateTo(video.next_id));
+                        }
+
+                        // Клавиатура
+                        document.addEventListener('keydown', (e) => {
+                            if (e.key === 'ArrowLeft' && video.prev_id) navigateTo(video.prev_id);
+                            if (e.key === 'ArrowRight' && video.next_id) navigateTo(video.next_id);
+                        });
+
+                        // Свайпы
+                        let touchStartX = 0;
+                        let touchStartY = 0;
+                        document.addEventListener('touchstart', (e) => {
+                            touchStartX = e.changedTouches[0].screenX;
+                            touchStartY = e.changedTouches[0].screenY;
+                        }, { passive: true });
+
+                        document.addEventListener('touchend', (e) => {
+                            const dx = e.changedTouches[0].screenX - touchStartX;
+                            const dy = e.changedTouches[0].screenY - touchStartY;
+                            if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return;
+                            if (dx > 0 && video.prev_id) navigateTo(video.prev_id);
+                            if (dx < 0 && video.next_id) navigateTo(video.next_id);
+                        }, { passive: true });
+
+                        // Подсказка о свайпе (показываем один раз)
+                        if ((video.prev_id || video.next_id) && !sessionStorage.getItem('swipeHintShown')) {
+                            swipeHint.classList.add('show');
+                            setTimeout(() => {
+                                swipeHint.classList.remove('show');
+                            }, 3000);
+                            sessionStorage.setItem('swipeHintShown', 'true');
+                        }
+                    }
 
                     if (!sessionStorage.getItem('attentionPopupShown')) {
                         const popup = document.createElement('div');
