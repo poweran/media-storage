@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Վիդեոնվագարկիչ — Media Storage</title>
+    <title>Դիտում — Media Storage</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -36,9 +36,10 @@
         </header>
 
         <main class="player-main">
-            <video id="videoPlayer" controls autoplay>
+            <video id="videoPlayer" controls autoplay style="display: none;">
                 Ձեր դիտարկիչը չի աջակցում վիդեոյի նվագարկումը։
             </video>
+            <img id="imageViewer" style="display: none; max-width: 100%; max-height: 100vh; object-fit: contain; margin: 0 auto; display: block;" alt="Photo">
         </main>
 
         <footer class="player-footer">
@@ -62,7 +63,19 @@
                     if (!video) { window.location.href = '/'; return; }
 
                     document.getElementById('playerTitle').textContent = video.filename;
-                    document.getElementById('videoPlayer').src = '/api/stream/' + id;
+                    
+                    if (video.mime_type && video.mime_type.startsWith('image/')) {
+                        document.getElementById('videoPlayer').style.display = 'none';
+                        const img = document.getElementById('imageViewer');
+                        img.style.display = 'block';
+                        img.src = '/api/stream/' + id;
+                    } else {
+                        document.getElementById('imageViewer').style.display = 'none';
+                        const vid = document.getElementById('videoPlayer');
+                        vid.style.display = 'block';
+                        vid.src = '/api/stream/' + id;
+                    }
+
                     document.getElementById('playerInfo').innerHTML =
                         '<span>' + formatSize(video.size) + '</span>' +
                         '<span>' + new Date(video.created_at).toLocaleDateString('hy-AM') + '</span>';

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Վիդեո — Media Storage</title>
+    <title>Ֆայլ — Media Storage</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -25,9 +25,10 @@
 
         <main class="share-main">
             <div class="share-player-wrap">
-                <video id="shareVideo" controls autoplay>
+                <video id="shareVideo" controls autoplay style="display: none;">
                     Ձեր դիտարկիչը չի աջակցում վիդեոյի նվագարկումը։
                 </video>
+                <img id="shareImage" style="display: none; width: 100%; height: 100%; object-fit: contain;" alt="Photo">
             </div>
             <div class="share-info">
                 <h1 id="shareTitle">Բեռնվում է...</h1>
@@ -63,7 +64,19 @@
                 })
                 .then(video => {
                     document.getElementById('shareTitle').textContent = video.filename;
-                    document.getElementById('shareVideo').src = '/api/share/' + shareId + '/stream';
+
+                    if (video.mime_type && video.mime_type.startsWith('image/')) {
+                        document.getElementById('shareVideo').style.display = 'none';
+                        const img = document.getElementById('shareImage');
+                        img.style.display = 'block';
+                        img.src = '/api/share/' + shareId + '/stream';
+                    } else {
+                        document.getElementById('shareImage').style.display = 'none';
+                        const vid = document.getElementById('shareVideo');
+                        vid.style.display = 'block';
+                        vid.src = '/api/share/' + shareId + '/stream';
+                    }
+
                     document.getElementById('shareMeta').innerHTML =
                         '<span>' + formatSize(video.size) + '</span> • <span>' +
                         new Date(video.created_at).toLocaleDateString('hy-AM') + '</span>';
@@ -72,7 +85,7 @@
                 })
                 .catch(() => {
                     document.querySelector('.share-main').innerHTML =
-                        '<div class="share-error"><h2>Վիդեոն չի գտնվել</h2><p>Հղումն անվավեր է կամ վիդեոն հեռացվել է</p></div>';
+                        '<div class="share-error"><h2>Ֆայլը չի գտնվել</h2><p>Հղումն անվավեր է կամ ֆայլը հեռացվել է</p></div>';
                 });
         })();
     </script>

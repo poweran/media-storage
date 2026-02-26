@@ -64,10 +64,10 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-    if (file.mimetype.startsWith('video/')) {
+    if (file.mimetype.startsWith('video/') || file.mimetype.startsWith('image/')) {
         cb(null, true);
     } else {
-        cb(new Error('Թույլատրվում են միայն վիդեո ֆայլեր'), false);
+        cb(new Error('Թույլատրվում են միայն վիդեո և ֆոտո ֆայլեր'), false);
     }
 };
 

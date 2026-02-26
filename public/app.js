@@ -44,9 +44,9 @@ if (uploadZone) {
     });
 
     uploadZone.addEventListener('drop', (e) => {
-        const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('video/'));
+        const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('video/') || f.type.startsWith('image/'));
         if (files.length > 0) uploadFiles(files);
-        else showToast('Թույլատրվում են միայն վիդեո ֆայլեր', 'error');
+        else showToast('Թույլատրվում են միայն վիդեո և ֆոտո ֆայլեր', 'error');
     });
 
     // Клик на зону загрузки тоже открывает выбор файлов
@@ -140,7 +140,7 @@ async function loadVideos() {
 
         videosGrid.style.display = 'grid';
         emptyState.style.display = 'none';
-        videosCount.textContent = `${videos.length} վիդեո`;
+        videosCount.textContent = `${videos.length} ֆայլ`;
 
         // Статистика в хедере
         const totalSize = videos.reduce((sum, v) => sum + v.size, 0);
@@ -155,9 +155,16 @@ async function loadVideos() {
       <div class="video-card" data-id="${video.id}">
         <div class="video-thumb" onclick="playVideo(${video.id})">
           <div class="play-icon">
-            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
-              <polygon points="5 3 19 12 5 21 5 3"/>
-            </svg>
+            ${video.mime_type && video.mime_type.startsWith('image/') ?
+                `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                 <circle cx="8.5" cy="8.5" r="1.5" />
+                 <polyline points="21 15 16 10 5 21" />
+               </svg>`
+                : `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                 <polygon points="5 3 19 12 5 21 5 3"/>
+               </svg>`
+            }
           </div>
         </div>
         <div class="video-info">
@@ -235,7 +242,7 @@ async function deleteVideo(id, filename) {
     try {
         const res = await fetch(`/api/videos/${id}`, { method: 'DELETE' });
         if (res.ok) {
-            showToast('Վիդեոն ջնջված է');
+            showToast('Ֆայլը ջնջված է');
             loadVideos();
         } else {
             showToast('Ջնջման սխալ', 'error');
