@@ -54,6 +54,7 @@ function isPublicPath(pathname) {
         pathname === '/secure-admin' ||
         pathname === '/secure-admin.html' ||
         pathname === '/api/login' ||
+        pathname === '/api/settings' ||
         pathname.startsWith('/s/') ||
         pathname.startsWith('/api/share/') ||
         pathname === '/style.css' ||
@@ -168,14 +169,15 @@ app.use(express.json());
 
 // Middleware авторизации
 app.use((req, res, next) => {
-    if (isPublicPath(req.path)) return next();
-
     const token = req.cookies.auth_token;
     const username = verifyToken(token);
     if (username) {
         req.user = { username };
-        return next();
     }
+
+    if (isPublicPath(req.path)) return next();
+
+    if (req.user) return next();
 
     // Для API — 401, для страниц — скрываем страницу логина (отдаем 404)
     if (req.path.startsWith('/api/')) {
@@ -250,6 +252,26 @@ app.post('/api/register', async (req, res) => {
 // Выход
 app.post('/api/logout', (req, res) => {
     res.clearCookie('auth_token');
+    res.json({ success: true });
+});
+
+// ==================== Настройки ====================
+
+app.get('/api/settings', (req, res) => {
+    const settings = {};
+    const rows = db.prepare('SELECT key, value FROM settings').all();
+    rows.forEach(r => settings[r.key] = r.value);
+    res.json(settings);
+});
+
+app.post('/api/settings', (req, res) => {
+    if (!req.user || req.user.username !== 'admin') {
+        return res.status(403).json({ error: 'Access denied: only admin can modify settings' });
+    }
+    const { site_title } = req.body;
+    if (site_title) {
+        db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(site_title, 'site_title');
+    }
     res.json({ success: true });
 });
 
@@ -450,6 +472,14 @@ app.patch('/api/videos/:id', (req, res) => {
     res.json({ success: true });
 });
 
+// Вычисляем срок действия (по умолчанию 2 месяца от текущей даты)
+function getDefaultExpirationDate() {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 2);
+    // Игнорируем миллисекунды для чистой записи, сохраняя как ISO string
+    return d.toISOString();
+}
+
 // Создать/удалить публичную ссылку
 app.post('/api/videos/:id/share', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
@@ -459,13 +489,14 @@ app.post('/api/videos/:id/share', (req, res) => {
 
     if (video.share_id) {
         // Удаляем ссылку
-        db.prepare('UPDATE videos SET share_id = NULL WHERE id = ?').run(req.params.id);
+        db.prepare('UPDATE videos SET share_id = NULL, share_expires_at = NULL WHERE id = ?').run(req.params.id);
         res.json({ share_id: null });
     } else {
         // Создаём ссылку
         const shareId = nanoid(10);
-        db.prepare('UPDATE videos SET share_id = ? WHERE id = ?').run(shareId, req.params.id);
-        res.json({ share_id: shareId });
+        const expiresAt = getDefaultExpirationDate();
+        db.prepare('UPDATE videos SET share_id = ?, share_expires_at = ? WHERE id = ?').run(shareId, expiresAt, req.params.id);
+        res.json({ share_id: shareId, share_expires_at: expiresAt });
     }
 });
 
@@ -477,8 +508,22 @@ app.post('/api/videos/:id/share/regenerate', (req, res) => {
     }
 
     const shareId = nanoid(10);
-    db.prepare('UPDATE videos SET share_id = ? WHERE id = ?').run(shareId, req.params.id);
-    res.json({ share_id: shareId });
+    const expiresAt = getDefaultExpirationDate();
+    db.prepare('UPDATE videos SET share_id = ?, share_expires_at = ? WHERE id = ?').run(shareId, expiresAt, req.params.id);
+    res.json({ share_id: shareId, share_expires_at: expiresAt });
+});
+
+// Изменить срок действия ссылки
+app.patch('/api/videos/:id/share/expire', (req, res) => {
+    const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.id);
+    if (!video) return res.status(404).json({ error: 'Video not found' });
+    if (!video.share_id) return res.status(400).json({ error: 'Video is not shared' });
+
+    const { expires_at } = req.body;
+    if (!expires_at) return res.status(400).json({ error: 'expires_at is required' });
+
+    db.prepare('UPDATE videos SET share_expires_at = ? WHERE id = ?').run(expires_at, req.params.id);
+    res.json({ success: true, share_expires_at: expires_at });
 });
 
 // Стриминг видео по ID
@@ -495,6 +540,9 @@ app.get('/api/share/:shareId/stream', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE share_id = ?').get(req.params.shareId);
     if (!video) {
         return res.status(404).json({ error: 'Video not found' });
+    }
+    if (video.share_expires_at && new Date() > new Date(video.share_expires_at)) {
+        return res.status(403).json({ error: 'Link expired' });
     }
     streamVideo(res, req, video);
 });
@@ -521,6 +569,9 @@ app.get('/api/videos/:id/qualities', (req, res) => {
 app.get('/api/share/:shareId/qualities', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE share_id = ?').get(req.params.shareId);
     if (!video) return res.status(404).json({ error: 'Video not found' });
+    if (video.share_expires_at && new Date() > new Date(video.share_expires_at)) {
+        return res.status(403).json({ error: 'Link expired' });
+    }
     if (!video.mime_type.startsWith('video/')) return res.json([]);
 
     const ext = path.extname(video.stored_name);
@@ -538,10 +589,13 @@ app.get('/api/share/:shareId/qualities', (req, res) => {
 
 // Информация о публичном видео
 app.get('/api/share/:shareId', (req, res) => {
-    const video = db.prepare('SELECT id, filename, size, mime_type, created_at FROM videos WHERE share_id = ?')
+    const video = db.prepare('SELECT id, filename, size, mime_type, created_at, share_expires_at FROM videos WHERE share_id = ?')
         .get(req.params.shareId);
     if (!video) {
         return res.status(404).json({ error: 'Video not found' });
+    }
+    if (video.share_expires_at && new Date() > new Date(video.share_expires_at)) {
+        return res.status(403).json({ error: 'Link expired' });
     }
     res.json(video);
 });
@@ -551,6 +605,9 @@ app.get('/s/:shareId', (req, res) => {
     const video = db.prepare('SELECT * FROM videos WHERE share_id = ?').get(req.params.shareId);
     if (!video) {
         return res.status(404).send('Video not found');
+    }
+    if (video.share_expires_at && new Date() > new Date(video.share_expires_at)) {
+        return res.status(403).send('Link expired');
     }
 
     fs.readFile(path.join(__dirname, 'public', 'share.html'), 'utf8', (err, html) => {
@@ -566,9 +623,12 @@ app.get('/s/:shareId', (req, res) => {
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
 
+        const siteTitleSetting = db.prepare("SELECT value FROM settings WHERE key = 'site_title'").get();
+        const siteTitle = siteTitleSetting ? siteTitleSetting.value : 'Provideo Media Holding';
+
         const customHtml = html.replace(
             '<title>File — Provideo Media Holding</title>',
-            `<title>${safeFilename} — Provideo Media Holding</title>\n    <meta property="og:title" content="${safeFilename}">\n    <meta property="og:site_name" content="Provideo Media Holding">`
+            `<title>${safeFilename} — ${siteTitle}</title>\n    <meta property="og:title" content="${safeFilename}">\n    <meta property="og:site_name" content="${siteTitle}">`
         );
 
         res.send(customHtml);

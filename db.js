@@ -27,6 +27,7 @@ db.exec(`
     size INTEGER NOT NULL,
     mime_type TEXT NOT NULL DEFAULT 'video/mp4',
     share_id TEXT UNIQUE,
+    share_expires_at DATETIME,
     uploader_username TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
@@ -43,6 +44,25 @@ db.exec(`
     FOREIGN KEY(parent_id) REFERENCES folders(id) ON DELETE CASCADE
   )
 `);
+
+// Создаём таблицу настроек
+db.exec(`
+  CREATE TABLE IF NOT EXISTS settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL UNIQUE,
+    value TEXT NOT NULL
+  )
+`);
+
+// Настройки по умолчанию
+try {
+  const titleSetting = db.prepare("SELECT value FROM settings WHERE key = 'site_title'").get();
+  if (!titleSetting) {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('site_title', 'Provideo Media Holding')").run();
+  }
+} catch (err) {
+  console.error('Ошибка инициализации настроек:', err);
+}
 
 // Миграция: добавляем колонку uploader_username, если её нет
 try {
@@ -66,6 +86,18 @@ try {
   }
 } catch (err) {
   console.error('Ошибка при миграции БД (folder_id):', err);
+}
+
+// Миграция: добавляем колонку share_expires_at, если её нет
+try {
+  const tableInfo = db.pragma('table_info(videos)');
+  const hasExpires = tableInfo.some(column => column.name === 'share_expires_at');
+  if (!hasExpires) {
+    db.exec('ALTER TABLE videos ADD COLUMN share_expires_at DATETIME');
+    console.log('Выполнена миграция БД: добавлена колонка share_expires_at в videos');
+  }
+} catch (err) {
+  console.error('Ошибка при миграции БД (share_expires_at):', err);
 }
 
 module.exports = db;

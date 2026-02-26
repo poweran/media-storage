@@ -234,27 +234,45 @@ async function loadVideos() {
         `).join('');
 
         // Рендерим файлы
-        html += videos.map(video => `
+        html += videos.map(video => {
+            let expireTag = '';
+            if (video.share_id && video.share_expires_at) {
+                const expDate = new Date(video.share_expires_at);
+                const now = new Date();
+                const diffMs = expDate - now;
+                const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+                if (diffMs < 0) {
+                    expireTag = `<span style="color: var(--danger); font-weight: 600;">⚠️ Expired</span>`;
+                } else if (diffDays <= 7) {
+                    expireTag = `<span style="color: var(--danger); font-weight: 600;">⚠️ Exp. in ${diffDays}d</span>`;
+                } else {
+                    expireTag = `<span>Exp. in ${diffDays}d</span>`;
+                }
+            }
+
+            return `
       <div class="video-card" data-id="${video.id}">
         <div class="video-thumb" onclick="playVideo(${video.id})">
           <div class="play-icon">
             ${video.mime_type && video.mime_type.startsWith('image/') ?
-                `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                  <circle cx="8.5" cy="8.5" r="1.5" />
                  <polyline points="21 15 16 10 5 21" />
                </svg>`
-                : `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    : `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
                  <polygon points="5 3 19 12 5 21 5 3"/>
                </svg>`
-            }
+                }
           </div>
         </div>
         <div class="video-info">
           <div class="video-name" title="${escapeHtml(video.filename)}">${escapeHtml(video.filename)}</div>
-          <div class="video-meta">
+          <div class="video-meta" style="flex-wrap: wrap; gap: 8px;">
             <span>${formatSize(video.size)}</span>
             <span>${new Date(video.created_at).toLocaleDateString('hy-AM')}</span>
+            ${expireTag}
             ${video.uploader_username ? `<span class="video-uploader" style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: auto;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10" style="vertical-align: -1px; margin-right: 2px;">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -274,6 +292,12 @@ async function loadVideos() {
             ${video.share_id ? 'Link' : 'Share'}
           </button>
           ${video.share_id ? `
+          <button class="icon-btn" onclick="openExpireModal(${video.id}, '${video.share_expires_at}')" title="Change expiration">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </button>
           <button class="icon-btn" onclick="regenerateShareLink(${video.id})" title="Regenerate link">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <polyline points="23 4 23 10 17 10"></polyline>
@@ -297,7 +321,8 @@ async function loadVideos() {
           </button>
         </div>
       </div>
-    `).join('');
+    `;
+        }).join('');
 
         videosGrid.innerHTML = html;
 
@@ -438,6 +463,69 @@ const renameModal = document.getElementById('renameModal');
 if (renameModal) {
     renameModal.addEventListener('click', (e) => {
         if (e.target === renameModal) closeRenameModal();
+    });
+}
+
+// ============================
+// Изменение срока действия (Expiration)
+// ============================
+let expireVideoId = null;
+
+function openExpireModal(id, currentDate) {
+    expireVideoId = id;
+    const modal = document.getElementById('expireModal');
+    const input = document.getElementById('expireInput');
+    modal.style.display = 'flex';
+    if (currentDate && currentDate !== 'null') {
+        const d = new Date(currentDate);
+        // Форматируем в YYYY-MM-DD для input type="date"
+        input.value = d.toISOString().split('T')[0];
+    } else {
+        input.value = '';
+    }
+    input.focus();
+}
+
+function closeExpireModal() {
+    document.getElementById('expireModal').style.display = 'none';
+    expireVideoId = null;
+}
+
+async function confirmExpire() {
+    const input = document.getElementById('expireInput');
+    const newDateStr = input.value;
+    if (!newDateStr) {
+        showToast('Please select a date', 'error');
+        return;
+    }
+
+    // Сохраняем в конец выбранного дня или начало (лучше брать текущее время в этот день или 23:59:59Z)
+    const newDateStrFull = newDateStr + 'T23:59:59.000Z';
+
+    try {
+        const res = await fetch(`/api/videos/${expireVideoId}/share/expire`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ expires_at: newDateStrFull })
+        });
+
+        if (res.ok) {
+            showToast('Expiration date updated');
+            closeExpireModal();
+            loadVideos();
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'Error updating date', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
+}
+
+const expireModal = document.getElementById('expireModal');
+if (expireModal) {
+    expireModal.addEventListener('click', (e) => {
+        if (e.target === expireModal) closeExpireModal();
     });
 }
 
@@ -623,6 +711,102 @@ if (addUserInput) {
 }
 
 // ============================
+// Настройки (Site Title)
+// ============================
+function openSettingsModal() {
+    const modal = document.getElementById('settingsModal');
+    const input = document.getElementById('siteTitleInput');
+    modal.style.display = 'flex';
+    // подставим текущее значение
+    input.value = document.title === 'Provideo Media Holding' || !document.title.includes(' — ')
+        ? document.title
+        : document.title.split(' — ')[1] || document.title;
+
+    const logoTexts = document.querySelectorAll('.logo-text');
+    if (logoTexts.length > 0) {
+        input.value = logoTexts[0].textContent;
+    }
+    input.focus();
+}
+
+function closeSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'none';
+}
+
+async function saveSettings() {
+    const siteTitle = document.getElementById('siteTitleInput').value.trim();
+    if (!siteTitle) {
+        showToast('Site title cannot be empty', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ site_title: siteTitle })
+        });
+
+        if (res.ok) {
+            showToast('Settings saved');
+            closeSettingsModal();
+            loadSettings(); // refresh title immediately
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'Error saving settings', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
+}
+
+async function loadSettings() {
+    try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+            const data = await res.json();
+            if (data.site_title) {
+                window.siteTitle = data.site_title; // save globally
+
+                // Изменяем title документа
+                if (document.title.includes(' — Provideo Media Holding')) {
+                    document.title = document.title.replace(' — Provideo Media Holding', ' — ' + data.site_title);
+                } else if (document.title.includes(' — ')) {
+                    const parts = document.title.split(' — ');
+                    // Сохраняем первую часть (до первого ' — ') и заменяем остальное
+                    document.title = parts[0] + ' — ' + data.site_title;
+                } else {
+                    document.title = data.site_title;
+                }
+
+                // Изменяем текст логотипа
+                const logoTexts = document.querySelectorAll('.logo-text, .login-logo span');
+                logoTexts.forEach(el => el.textContent = data.site_title);
+            }
+        }
+    } catch {
+        // ignore
+    }
+}
+
+const settingsModal = document.getElementById('settingsModal');
+if (settingsModal) {
+    settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) closeSettingsModal();
+    });
+}
+const siteTitleInput = document.getElementById('siteTitleInput');
+if (siteTitleInput) {
+    siteTitleInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') saveSettings();
+        if (e.key === 'Escape') closeSettingsModal();
+    });
+}
+
+// Загружаем настройки на всех страницах
+loadSettings();
+
+// ============================
 // Инициализация
 // ============================
 async function loadUserProfile() {
@@ -636,6 +820,8 @@ async function loadUserProfile() {
             if (data.username === 'admin') {
                 const addUserBtn = document.getElementById('addUserBtn');
                 if (addUserBtn) addUserBtn.style.display = 'inline-flex';
+                const settingsBtn = document.getElementById('settingsBtn');
+                if (settingsBtn) settingsBtn.style.display = 'inline-flex';
             }
         }
     } catch {

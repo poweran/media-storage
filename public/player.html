@@ -157,7 +157,7 @@
                     document.getElementById('playerInfo').innerHTML =
                         '<span>' + formatSize(video.size) + '</span>' +
                         '<span>' + new Date(video.created_at).toLocaleDateString('en-US') + '</span>';
-                    document.title = video.filename + ' — Provideo Media Holding';
+                    document.title = video.filename + ' — ' + (window.siteTitle || 'Provideo Media Holding');
 
                     // Share button
                     document.getElementById('shareBtn').addEventListener('click', async () => {
