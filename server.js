@@ -781,9 +781,6 @@ app.get('/s/:shareId', (req, res) => {
     if (!video) {
         return res.status(404).send('Video not found');
     }
-    if (video.share_expires_at && new Date() > new Date(video.share_expires_at)) {
-        return res.status(403).send('Link expired');
-    }
 
     fs.readFile(path.join(__dirname, 'public', 'share.html'), 'utf8', (err, html) => {
         if (err) {
@@ -816,9 +813,6 @@ app.get('/s/f/:shareId', (req, res) => {
     if (!folder) {
         return res.status(404).send('Folder not found');
     }
-    if (folder.share_expires_at && new Date() > new Date(folder.share_expires_at)) {
-        return res.status(403).send('Link expired');
-    }
 
     fs.readFile(path.join(__dirname, 'public', 'share-folder.html'), 'utf8', (err, html) => {
         if (err) {
@@ -847,8 +841,10 @@ app.get('/s/f/:shareId', (req, res) => {
 
 // Публичная страница видео внутри папки
 app.get('/s/f/:shareId/v/:videoId', (req, res) => {
-    const { video, error, status } = checkVideoInSharedFolder(req.params.shareId, req.params.videoId);
-    if (error) return res.status(status).send(error);
+    const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.videoId);
+    if (!video) {
+        return res.status(404).send('Video not found');
+    }
 
     fs.readFile(path.join(__dirname, 'public', 'share.html'), 'utf8', (err, html) => {
         if (err) {
