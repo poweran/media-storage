@@ -36,7 +36,7 @@ function verifyToken(token) {
 
 // Создаём пользователя по умолчанию или обновляем пароль
 try {
-    const defaultPassword = process.env.AUTH_PASSWORD;
+    const defaultPassword = process.env.AUTH_PASSWORD || 'admin';
     const hash = bcrypt.hashSync(defaultPassword, 10);
 
     // Пытаемся вставить пользователя. Если он уже есть, игнорируем ошибку.
