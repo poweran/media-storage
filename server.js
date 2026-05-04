@@ -34,13 +34,21 @@ function verifyToken(token) {
     return isValid ? username : false;
 }
 
-// Создаём пользователя по умолчанию
+// Создаём пользователя по умолчанию или обновляем пароль
 try {
-    const defaultPassword = process.env.AUTH_PASSWORD || 'admin';
+    const defaultPassword = process.env.AUTH_PASSWORD;
     const hash = bcrypt.hashSync(defaultPassword, 10);
-    db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)')
-        .run('admin', hash);
-    console.log(`Создан пользователь по умолчанию: admin / ${process.env.AUTH_PASSWORD ? 'пароль из AUTH_PASSWORD' : 'admin'}`);
+
+    // Пытаемся вставить пользователя. Если он уже есть, игнорируем ошибку.
+    const info = db.prepare('INSERT OR IGNORE INTO users (username, password_hash) VALUES (?, ?)').run('admin', hash);
+
+    // Если пользователь уже существовал, и переменная AUTH_PASSWORD передана, обновляем пароль
+    if (info.changes === 0 && process.env.AUTH_PASSWORD) {
+        db.prepare('UPDATE users SET password_hash = ? WHERE username = ?').run(hash, 'admin');
+        console.log('Пароль администратора успешно обновлён из переменной AUTH_PASSWORD');
+    } else if (info.changes > 0) {
+        console.log(`Создан пользователь по умолчанию: admin / ${process.env.AUTH_PASSWORD ? 'пароль из AUTH_PASSWORD' : 'admin'}`);
+    }
 } catch (err) {
     console.error('Ошибка инициализации пользователей:', err);
 }
