@@ -34,16 +34,13 @@ function verifyToken(token) {
     return isValid ? username : false;
 }
 
-// Создаём пользователя по умолчанию, если БД пуста
+// Создаём пользователя по умолчанию
 try {
-    const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
-    if (userCount === 0) {
-        const defaultPassword = process.env.AUTH_PASSWORD || 'admin';
-        const hash = bcrypt.hashSync(defaultPassword, 10);
-        db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)')
-            .run('admin', hash);
-        console.log(`Создан пользователь по умолчанию: admin / ${process.env.AUTH_PASSWORD ? 'пароль из AUTH_PASSWORD' : 'admin'}`);
-    }
+    const defaultPassword = process.env.AUTH_PASSWORD || 'admin';
+    const hash = bcrypt.hashSync(defaultPassword, 10);
+    db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)')
+        .run('admin', hash);
+    console.log(`Создан пользователь по умолчанию: admin / ${process.env.AUTH_PASSWORD ? 'пароль из AUTH_PASSWORD' : 'admin'}`);
 } catch (err) {
     console.error('Ошибка инициализации пользователей:', err);
 }
