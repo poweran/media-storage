@@ -248,15 +248,15 @@ async function loadVideos() {
           </div>
         </div>
         <div class="video-actions">
-          <button class="icon-btn ${folder.share_id ? 'shared' : ''}" onclick="toggleFolderShare(${folder.id})" title="${folder.share_id ? 'Remove link' : 'Share folder'}">
+          <button class="icon-btn ${folder.is_shared ? 'shared' : ''}" onclick="toggleFolderShare(${folder.id})" title="${folder.is_shared ? 'Remove link' : 'Share folder'}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
             </svg>
-            ${folder.share_id ? 'Link' : 'Share'}
+            ${folder.is_shared ? 'Link' : 'Share'}
           </button>
-          ${folder.share_id ? `
+          ${folder.is_shared ? `
           <button class="icon-btn" onclick="openExpireModal(${folder.id}, '${folder.share_expires_at}', true)" title="Change expiration">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <circle cx="12" cy="12" r="10"></circle>
@@ -339,15 +339,15 @@ async function loadVideos() {
           </div>
         </div>
         <div class="video-actions">
-          <button class="icon-btn ${video.share_id ? 'shared' : ''}" onclick="toggleShare(${video.id})" title="${video.share_id ? 'Remove link' : 'Share'}">
+          <button class="icon-btn ${video.is_shared ? 'shared' : ''}" onclick="toggleShare(${video.id})" title="${video.is_shared ? 'Remove link' : 'Share'}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
             </svg>
-            ${video.share_id ? 'Link' : 'Share'}
+            ${video.is_shared ? 'Link' : 'Share'}
           </button>
-          ${video.share_id ? `
+          ${video.is_shared ? `
           <button class="icon-btn" onclick="openExpireModal(${video.id}, '${video.share_expires_at}', false)" title="Change expiration">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <circle cx="12" cy="12" r="10"></circle>
@@ -399,7 +399,7 @@ async function toggleShare(id) {
         const res = await fetch(`/api/videos/${id}/share`, { method: 'POST' });
         const data = await res.json();
 
-        if (data.share_id) {
+        if (data.is_shared) {
             const url = window.location.origin + '/s/' + data.share_id;
             try {
                 await navigator.clipboard.writeText(url);
@@ -446,7 +446,7 @@ async function toggleFolderShare(id) {
         const res = await fetch(`/api/folders/${id}/share`, { method: 'POST' });
         const data = await res.json();
 
-        if (data.share_id) {
+        if (data.is_shared) {
             const url = window.location.origin + '/s/f/' + data.share_id;
             try {
                 await navigator.clipboard.writeText(url);

@@ -504,16 +504,19 @@ app.post('/api/videos/:id/share', (req, res) => {
         return res.status(404).json({ error: 'Video not found' });
     }
 
-    if (video.share_id) {
-        // Удаляем ссылку
-        db.prepare('UPDATE videos SET share_id = NULL, share_expires_at = NULL WHERE id = ?').run(req.params.id);
-        res.json({ share_id: null });
+    if (video.is_shared) {
+        // Выключаем доступ, но сохраняем ID
+        db.prepare('UPDATE videos SET is_shared = 0 WHERE id = ?').run(req.params.id);
+        res.json({ share_id: null, is_shared: 0 });
     } else {
-        // Создаём ссылку
-        const shareId = nanoid(10);
-        const expiresAt = getDefaultExpirationDate();
-        db.prepare('UPDATE videos SET share_id = ?, share_expires_at = ? WHERE id = ?').run(shareId, expiresAt, req.params.id);
-        res.json({ share_id: shareId, share_expires_at: expiresAt });
+        // Включаем доступ
+        let shareId = video.share_id;
+        if (!shareId) {
+            shareId = nanoid(10);
+        }
+        const expiresAt = video.share_expires_at || getDefaultExpirationDate();
+        db.prepare('UPDATE videos SET share_id = ?, share_expires_at = ?, is_shared = 1 WHERE id = ?').run(shareId, expiresAt, req.params.id);
+        res.json({ share_id: shareId, share_expires_at: expiresAt, is_shared: 1 });
     }
 });
 
@@ -526,8 +529,8 @@ app.post('/api/videos/:id/share/regenerate', (req, res) => {
 
     const shareId = nanoid(10);
     const expiresAt = getDefaultExpirationDate();
-    db.prepare('UPDATE videos SET share_id = ?, share_expires_at = ? WHERE id = ?').run(shareId, expiresAt, req.params.id);
-    res.json({ share_id: shareId, share_expires_at: expiresAt });
+    db.prepare('UPDATE videos SET share_id = ?, share_expires_at = ?, is_shared = 1 WHERE id = ?').run(shareId, expiresAt, req.params.id);
+    res.json({ share_id: shareId, share_expires_at: expiresAt, is_shared: 1 });
 });
 
 // Изменить срок действия ссылки
@@ -539,8 +542,8 @@ app.patch('/api/videos/:id/share/expire', (req, res) => {
     const { expires_at } = req.body;
     if (!expires_at) return res.status(400).json({ error: 'expires_at is required' });
 
-    db.prepare('UPDATE videos SET share_expires_at = ? WHERE id = ?').run(expires_at, req.params.id);
-    res.json({ success: true, share_expires_at: expires_at });
+    db.prepare('UPDATE videos SET share_expires_at = ?, is_shared = 1 WHERE id = ?').run(expires_at, req.params.id);
+    res.json({ success: true, share_expires_at: expires_at, is_shared: 1 });
 });
 
 // Стриминг видео по ID
@@ -554,9 +557,9 @@ app.get('/api/stream/:id', (req, res) => {
 
 // Стриминг по публичной ссылке
 app.get('/api/share/:shareId/stream', (req, res) => {
-    const video = db.prepare('SELECT * FROM videos WHERE share_id = ?').get(req.params.shareId);
+    const video = db.prepare('SELECT * FROM videos WHERE share_id = ? AND is_shared = 1').get(req.params.shareId);
     if (!video) {
-        return res.status(404).json({ error: 'Video not found' });
+        return res.status(404).json({ error: 'Video not found or not shared' });
     }
     if (video.share_expires_at && new Date() > new Date(video.share_expires_at)) {
         return res.status(403).json({ error: 'Link expired' });
@@ -584,8 +587,8 @@ app.get('/api/videos/:id/qualities', (req, res) => {
 });
 
 app.get('/api/share/:shareId/qualities', (req, res) => {
-    const video = db.prepare('SELECT * FROM videos WHERE share_id = ?').get(req.params.shareId);
-    if (!video) return res.status(404).json({ error: 'Video not found' });
+    const video = db.prepare('SELECT * FROM videos WHERE share_id = ? AND is_shared = 1').get(req.params.shareId);
+    if (!video) return res.status(404).json({ error: 'Video not found or not shared' });
     if (video.share_expires_at && new Date() > new Date(video.share_expires_at)) {
         return res.status(403).json({ error: 'Link expired' });
     }
@@ -606,7 +609,7 @@ app.get('/api/share/:shareId/qualities', (req, res) => {
 
 // Информация о публичном видео
 app.get('/api/share/:shareId', (req, res) => {
-    const video = db.prepare('SELECT id, filename, size, mime_type, created_at, share_expires_at FROM videos WHERE share_id = ?')
+    const video = db.prepare('SELECT id, filename, size, mime_type, created_at, share_expires_at FROM videos WHERE share_id = ? AND is_shared = 1')
         .get(req.params.shareId);
     if (!video) {
         return res.status(404).json({ error: 'Video not found' });
@@ -626,16 +629,19 @@ app.post('/api/folders/:id/share', (req, res) => {
         return res.status(404).json({ error: 'Folder not found' });
     }
 
-    if (folder.share_id) {
-        // Удаляем ссылку
-        db.prepare('UPDATE folders SET share_id = NULL, share_expires_at = NULL WHERE id = ?').run(req.params.id);
-        res.json({ share_id: null });
+    if (folder.is_shared) {
+        // Выключаем доступ, но сохраняем ID
+        db.prepare('UPDATE folders SET is_shared = 0 WHERE id = ?').run(req.params.id);
+        res.json({ share_id: null, is_shared: 0 });
     } else {
-        // Создаём ссылку
-        const shareId = nanoid(10);
-        const expiresAt = getDefaultExpirationDate();
-        db.prepare('UPDATE folders SET share_id = ?, share_expires_at = ? WHERE id = ?').run(shareId, expiresAt, req.params.id);
-        res.json({ share_id: shareId, share_expires_at: expiresAt });
+        // Включаем доступ
+        let shareId = folder.share_id;
+        if (!shareId) {
+            shareId = nanoid(10);
+        }
+        const expiresAt = folder.share_expires_at || getDefaultExpirationDate();
+        db.prepare('UPDATE folders SET share_id = ?, share_expires_at = ?, is_shared = 1 WHERE id = ?').run(shareId, expiresAt, req.params.id);
+        res.json({ share_id: shareId, share_expires_at: expiresAt, is_shared: 1 });
     }
 });
 
@@ -648,8 +654,8 @@ app.post('/api/folders/:id/share/regenerate', (req, res) => {
 
     const shareId = nanoid(10);
     const expiresAt = getDefaultExpirationDate();
-    db.prepare('UPDATE folders SET share_id = ?, share_expires_at = ? WHERE id = ?').run(shareId, expiresAt, req.params.id);
-    res.json({ share_id: shareId, share_expires_at: expiresAt });
+    db.prepare('UPDATE folders SET share_id = ?, share_expires_at = ?, is_shared = 1 WHERE id = ?').run(shareId, expiresAt, req.params.id);
+    res.json({ share_id: shareId, share_expires_at: expiresAt, is_shared: 1 });
 });
 
 // Изменить срок действия ссылки для папки
@@ -661,13 +667,13 @@ app.patch('/api/folders/:id/share/expire', (req, res) => {
     const { expires_at } = req.body;
     if (!expires_at) return res.status(400).json({ error: 'expires_at is required' });
 
-    db.prepare('UPDATE folders SET share_expires_at = ? WHERE id = ?').run(expires_at, req.params.id);
-    res.json({ success: true, share_expires_at: expires_at });
+    db.prepare('UPDATE folders SET share_expires_at = ?, is_shared = 1 WHERE id = ?').run(expires_at, req.params.id);
+    res.json({ success: true, share_expires_at: expires_at, is_shared: 1 });
 });
 
 // Получить содержимое публичной папки
 app.get('/api/share/folder/:shareId', (req, res) => {
-    const rootFolder = db.prepare('SELECT * FROM folders WHERE share_id = ?').get(req.params.shareId);
+    const rootFolder = db.prepare('SELECT * FROM folders WHERE share_id = ? AND is_shared = 1').get(req.params.shareId);
     if (!rootFolder) {
         return res.status(404).json({ error: 'Folder not found' });
     }
@@ -712,7 +718,7 @@ app.get('/api/share/folder/:shareId', (req, res) => {
 
 // Проверка права доступа к конкретному видео внутри публичной папки
 function checkVideoInSharedFolder(shareId, videoId) {
-    const rootFolder = db.prepare('SELECT * FROM folders WHERE share_id = ?').get(shareId);
+    const rootFolder = db.prepare('SELECT * FROM folders WHERE share_id = ? AND is_shared = 1').get(shareId);
     if (!rootFolder) return { error: 'Folder not found', status: 404 };
     if (rootFolder.share_expires_at && new Date() > new Date(rootFolder.share_expires_at)) {
         return { error: 'Link expired', status: 403 };
@@ -794,7 +800,7 @@ app.get('/api/share/folder/:shareId/video/:videoId/stream', (req, res) => {
 
 // Публичная страница видео
 app.get('/s/:shareId', (req, res) => {
-    const video = db.prepare('SELECT * FROM videos WHERE share_id = ?').get(req.params.shareId);
+    const video = db.prepare('SELECT * FROM videos WHERE share_id = ? AND is_shared = 1').get(req.params.shareId);
     if (!video) {
         return res.status(404).send('Video not found');
     }
@@ -826,9 +832,9 @@ app.get('/s/:shareId', (req, res) => {
 
 // Публичная страница папки
 app.get('/s/f/:shareId', (req, res) => {
-    const folder = db.prepare('SELECT * FROM folders WHERE share_id = ?').get(req.params.shareId);
+    const folder = db.prepare('SELECT * FROM folders WHERE share_id = ? AND is_shared = 1').get(req.params.shareId);
     if (!folder) {
-        return res.status(404).send('Folder not found');
+        return res.status(404).send('Folder not found or not shared');
     }
 
     fs.readFile(path.join(__dirname, 'public', 'share-folder.html'), 'utf8', (err, html) => {
@@ -858,6 +864,12 @@ app.get('/s/f/:shareId', (req, res) => {
 
 // Публичная страница видео внутри папки
 app.get('/s/f/:shareId/v/:videoId', (req, res) => {
+    // Проверяем, что папка расшарена
+    const folder = db.prepare('SELECT * FROM folders WHERE share_id = ? AND is_shared = 1').get(req.params.shareId);
+    if (!folder) {
+        return res.status(404).send('Folder not found or not shared');
+    }
+
     const video = db.prepare('SELECT * FROM videos WHERE id = ?').get(req.params.videoId);
     if (!video) {
         return res.status(404).send('Video not found');

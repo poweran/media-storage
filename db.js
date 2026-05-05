@@ -34,6 +34,7 @@ db.exec(`
     mime_type TEXT NOT NULL DEFAULT 'video/mp4',
     share_id TEXT UNIQUE,
     share_expires_at DATETIME,
+    is_shared INTEGER DEFAULT 0,
     uploader_username TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
@@ -48,6 +49,7 @@ db.exec(`
     uploader_username TEXT NOT NULL,
     share_id TEXT UNIQUE,
     share_expires_at DATETIME,
+    is_shared INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(parent_id) REFERENCES folders(id) ON DELETE CASCADE
   )
@@ -131,6 +133,34 @@ try {
   }
 } catch (err) {
   console.error('Ошибка при миграции БД (share_expires_at в folders):', err);
+}
+
+// Миграция: добавляем колонку is_shared в videos
+try {
+  const tableInfo = db.pragma('table_info(videos)');
+  const hasIsShared = tableInfo.some(column => column.name === 'is_shared');
+  if (!hasIsShared) {
+    db.exec('ALTER TABLE videos ADD COLUMN is_shared INTEGER DEFAULT 0');
+    // Если уже есть share_id, помечаем как расшаренное
+    db.exec('UPDATE videos SET is_shared = 1 WHERE share_id IS NOT NULL');
+    console.log('Выполнена миграция БД: добавлена колонка is_shared в videos');
+  }
+} catch (err) {
+  console.error('Ошибка при миграции БД (is_shared в videos):', err);
+}
+
+// Миграция: добавляем колонку is_shared в folders
+try {
+  const tableInfo = db.pragma('table_info(folders)');
+  const hasIsShared = tableInfo.some(column => column.name === 'is_shared');
+  if (!hasIsShared) {
+    db.exec('ALTER TABLE folders ADD COLUMN is_shared INTEGER DEFAULT 0');
+    // Если уже есть share_id, помечаем как расшаренное
+    db.exec('UPDATE folders SET is_shared = 1 WHERE share_id IS NOT NULL');
+    console.log('Выполнена миграция БД: добавлена колонка is_shared в folders');
+  }
+} catch (err) {
+  console.error('Ошибка при миграции БД (is_shared в folders):', err);
 }
 
 module.exports = db;
