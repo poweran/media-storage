@@ -311,22 +311,23 @@
                         }
                     }
 
-                    if (!sessionStorage.getItem('attentionPopupShown')) {
+                    const popupKey = 'attentionPopupShown_' + video.id + '_' + video.share_expires_at;
+                    if (!sessionStorage.getItem(popupKey)) {
                         const popup = document.createElement('div');
                         popup.innerHTML = `
                             <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
                                 <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; max-width: 600px; width: 100%; padding: 32px; text-align: center; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                                     <h2 style="margin-top: 0; margin-bottom: 16px; color: var(--text-primary);">ՈՒՇԱԴՐՈՒԹՅՈՒՆ / ATTENTION</h2>
                                     <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px; color: var(--text-secondary);">
-                                        Խնդրում ենք Ձեր ֆայլերը ներբեռնել ԵՐԿՈՒ ամսվա ընթացքում, քանի որ նշված ժամկետի ավարտից հետո հղումը այլևս հասանելի չի լինի։<br>Կրկին շնորհակալություն համագործակցության համար։<br><br>
-                                        Please download your files within TWO months, as the link will no longer be available after this period.<br>Thank you again for your cooperation.
+                                        Խնդրում ենք Ձեր ֆայլերը ներբեռնել մինչև <strong>${new Date(video.share_expires_at).toLocaleDateString('am-AM')}</strong>, քանի որ նշված ժամկետի ավարտից հետո հղումը այլևս հասանելի չի լինի։<br>Կրկին շնորհակալություն համագործակցության համար։<br><br>
+                                        Please download your files within <strong>${new Date(video.share_expires_at).toLocaleDateString('en-US')}</strong>, as the link will no longer be available after this period.<br>Thank you again for your cooperation.
                                     </p>
                                     <button onclick="this.parentElement.parentElement.remove()" style="padding: 12px 32px; font-size: 16px; font-weight: 600; border-radius: 8px; border: none; background: #646cff; color: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#535bf2'" onmouseout="this.style.background='#646cff'">OK</button>
                                 </div>
                             </div>
                         `;
                         document.body.appendChild(popup);
-                        sessionStorage.setItem('attentionPopupShown', 'true');
+                        sessionStorage.setItem(popupKey, 'true');
                     }
                 })
                 .catch(err => {

@@ -528,7 +528,7 @@ app.post('/api/videos/:id/share/regenerate', (req, res) => {
     }
 
     const shareId = nanoid(10);
-    const expiresAt = getDefaultExpirationDate();
+    const expiresAt = video.share_expires_at || getDefaultExpirationDate();
     db.prepare('UPDATE videos SET share_id = ?, share_expires_at = ?, is_shared = 1 WHERE id = ?').run(shareId, expiresAt, req.params.id);
     res.json({ share_id: shareId, share_expires_at: expiresAt, is_shared: 1 });
 });
@@ -653,7 +653,7 @@ app.post('/api/folders/:id/share/regenerate', (req, res) => {
     }
 
     const shareId = nanoid(10);
-    const expiresAt = getDefaultExpirationDate();
+    const expiresAt = folder.share_expires_at || getDefaultExpirationDate();
     db.prepare('UPDATE folders SET share_id = ?, share_expires_at = ?, is_shared = 1 WHERE id = ?').run(shareId, expiresAt, req.params.id);
     res.json({ share_id: shareId, share_expires_at: expiresAt, is_shared: 1 });
 });
