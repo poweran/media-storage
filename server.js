@@ -199,7 +199,7 @@ app.use((req, res, next) => {
     if (req.path.startsWith('/api/')) {
         return res.status(401).json({ error: 'Authorization required' });
     }
-    return res.status(404).send('Not found');
+    return res.destroy();
 });
 
 // Статические файлы (после middleware авторизации)
