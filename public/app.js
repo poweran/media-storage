@@ -366,7 +366,7 @@ async function loadVideos() {
         </div>
         <div class="video-actions">
           <div class="share-container">
-            <button class="icon-btn ${folder.is_shared ? 'shared' : ''}" onclick="folder.is_shared ? toggleShareMenu(event, ${folder.id}, true) : toggleFolderShare(${folder.id})" title="${folder.is_shared ? 'Share options' : 'Share folder'}">
+            <button class="icon-btn ${folder.is_shared ? 'shared' : ''}" onclick="${folder.is_shared ? `toggleShareMenu(event, ${folder.id}, true)` : `toggleFolderShare(${folder.id})`}" title="${folder.is_shared ? 'Share options' : 'Share folder'}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
                 <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
@@ -469,7 +469,7 @@ async function loadVideos() {
         </div>
         <div class="video-actions">
           <div class="share-container">
-            <button class="icon-btn ${video.is_shared ? 'shared' : ''}" onclick="video.is_shared ? toggleShareMenu(event, ${video.id}, false) : toggleShare(${video.id})" title="${video.is_shared ? 'Share options' : 'Share'}">
+            <button class="icon-btn ${video.is_shared ? 'shared' : ''}" onclick="${video.is_shared ? `toggleShareMenu(event, ${video.id}, false)` : `toggleShare(${video.id})`}" title="${video.is_shared ? 'Share options' : 'Share'}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
                 <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
