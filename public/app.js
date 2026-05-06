@@ -978,6 +978,62 @@ function openAddUserModal() {
     inputUser.value = '';
     inputPass.value = '';
     inputUser.focus();
+    loadUsers();
+}
+
+async function loadUsers() {
+    const userList = document.getElementById('userList');
+    if (!userList) return;
+
+    try {
+        const res = await fetch('/api/users');
+        if (!res.ok) throw new Error('Failed to load users');
+        const users = await res.json();
+
+        if (users.length === 0) {
+            userList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 14px;">No users found</div>';
+            return;
+        }
+
+        userList.innerHTML = users.map(user => `
+            <div class="user-item">
+                <div class="user-info-brief">
+                    <span class="user-name-label">${escapeHtml(user.username)}</span>
+                    <span class="user-date-label">Created: ${new Date(user.created_at).toLocaleDateString()}</span>
+                </div>
+                <div class="user-actions">
+                    ${user.username !== 'admin' ? `
+                        <button class="icon-btn danger" onclick="deleteUser(${user.id}, '${escapeJs(user.username)}')" title="Delete user" style="padding: 4px 8px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            </svg>
+                        </button>
+                    ` : '<span style="font-size: 11px; color: var(--accent); font-weight: 600; padding: 4px 8px;">System Admin</span>'}
+                </div>
+            </div>
+        `).join('');
+    } catch (err) {
+        userList.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--danger); font-size: 14px;">Error: ${err.message}</div>`;
+    }
+}
+
+async function deleteUser(id, username) {
+    if (!confirm(`Are you sure you want to delete user "${username}"?`)) return;
+
+    try {
+        const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+
+        if (res.ok) {
+            showToast(`User "${username}" deleted`);
+            loadUsers();
+        } else {
+            showToast(data.error || 'Error deleting user', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
 }
 
 function closeAddUserModal() {
@@ -1004,7 +1060,9 @@ async function confirmAddUser() {
 
         if (res.ok) {
             showToast('User created successfully');
-            closeAddUserModal();
+            document.getElementById('newUsernameInput').value = '';
+            document.getElementById('newUserPasswordInput').value = '';
+            loadUsers();
         } else {
             showToast(data.error || 'Error creating user', 'error');
         }

@@ -162,8 +162,18 @@
 
   <!-- Add User Modal -->
   <div class="modal-overlay" id="addUserModal" style="display: none;">
-    <div class="modal">
-      <h3>Add New User</h3>
+    <div class="modal" style="width: 450px; max-width: 95%;">
+      <h3>User Management</h3>
+      
+      <!-- List of existing users -->
+      <div id="userListContainer" style="margin-bottom: 24px; max-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid var(--border);">
+        <div id="userList" style="padding: 8px;">
+          <!-- Users will be loaded here -->
+          <div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 14px;">Loading users...</div>
+        </div>
+      </div>
+
+      <h4 style="margin-bottom: 12px; font-size: 15px; color: var(--text-secondary);">Add New User</h4>
       <input type="text" class="modal-input" id="newUsernameInput" placeholder="Username" style="margin-bottom: 12px;"
         autocomplete="off">
       <input type="password" class="modal-input" id="newUserPasswordInput" placeholder="Password"

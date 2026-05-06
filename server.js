@@ -267,6 +267,34 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
+// Список пользователей (только для admin)
+app.get('/api/users', (req, res) => {
+    if (!req.user || req.user.username !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+    const users = db.prepare('SELECT id, username, created_at FROM users ORDER BY username ASC').all();
+    res.json(users);
+});
+
+// Удалить пользователя (только для admin)
+app.delete('/api/users/:id', (req, res) => {
+    if (!req.user || req.user.username !== 'admin') {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const user = db.prepare('SELECT username FROM users WHERE id = ?').get(req.params.id);
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.username === 'admin') {
+        return res.status(400).json({ error: 'Cannot delete admin user' });
+    }
+
+    db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+});
+
 // Выход
 app.post('/api/logout', (req, res) => {
     res.clearCookie('auth_token');
