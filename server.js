@@ -105,10 +105,11 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
+const MAX_FILE_SIZE_GB = parseInt(process.env.MAX_FILE_SIZE_GB) || 2;
 const upload = multer({
     storage,
     fileFilter,
-    limits: { fileSize: 150 * 1024 * 1024 * 1024 } // 150 GB
+    limits: { fileSize: MAX_FILE_SIZE_GB * 1024 * 1024 * 1024 }
 });
 
 // ==================== Очередь перекодирования ====================
@@ -274,7 +275,9 @@ app.post('/api/logout', (req, res) => {
 // ==================== Настройки ====================
 
 app.get('/api/settings', (req, res) => {
-    const settings = {};
+    const settings = {
+        max_file_size_gb: MAX_FILE_SIZE_GB
+    };
     const rows = db.prepare('SELECT key, value FROM settings').all();
     rows.forEach(r => settings[r.key] = r.value);
     res.json(settings);

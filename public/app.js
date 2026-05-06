@@ -1008,6 +1008,14 @@ async function loadSettings() {
                 const logoTexts = document.querySelectorAll('.logo-text, .login-logo span');
                 logoTexts.forEach(el => el.textContent = data.site_title);
             }
+
+            // Обновляем ограничение размера файла в подсказке
+            if (data.max_file_size_gb) {
+                const hint = document.getElementById('uploadHint');
+                if (hint) {
+                    hint.textContent = hint.textContent.replace(/\d+ GB/, data.max_file_size_gb + ' GB');
+                }
+            }
         }
     } catch {
         // ignore
