@@ -1,4 +1,38 @@
 // ============================
+// Глобальный перехват ошибок доступа (401/403)
+// ============================
+(function() {
+    const isPublicPage = window.location.pathname.startsWith('/s/') || 
+                         window.location.pathname === '/secure-admin' || 
+                         window.location.pathname === '/secure-admin.html';
+    
+    // Перехват fetch
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+        try {
+            const response = await originalFetch(...args);
+            if ((response.status === 401 || response.status === 403) && !isPublicPage) {
+                window.location.href = '/secure-admin';
+            }
+            return response;
+        } catch (err) {
+            throw err;
+        }
+    };
+
+    // Перехват XMLHttpRequest
+    const originalOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function() {
+        this.addEventListener('load', function() {
+            if ((this.status === 401 || this.status === 403) && !isPublicPage) {
+                window.location.href = '/secure-admin';
+            }
+        });
+        return originalOpen.apply(this, arguments);
+    };
+})();
+
+// ============================
 // Утилиты
 // ============================
 function formatSize(bytes) {
