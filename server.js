@@ -95,7 +95,10 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-    if (file.mimetype.startsWith('video/') || file.mimetype.startsWith('image/')) {
+    const isChunk = file.fieldname === 'chunk';
+    const isAllowedType = file.mimetype.startsWith('video/') || file.mimetype.startsWith('image/');
+    
+    if (isAllowedType || (isChunk && file.mimetype === 'application/octet-stream')) {
         cb(null, true);
     } else {
         cb(new Error('Only video and photo files are allowed'), false);
