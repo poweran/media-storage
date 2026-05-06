@@ -503,18 +503,22 @@ app.post('/api/upload/chunk', upload.single('chunk'), async (req, res) => {
         const chunkIndexNum = parseInt(chunkIndex);
         const startOffset = chunkIndexNum * CHUNK_SIZE_VAL;
         
+        console.log(`[Upload] Receiving chunk ${chunkIndexNum} for ${uploadId} (offset ${startOffset})`);
+
+        if (chunkIndexNum === 0 && fs.existsSync(destPath) && startOffset === 0) {
+            console.log(`[Upload] Truncating existing file for new upload: ${uploadId}`);
+            fs.writeFileSync(destPath, ''); 
+        }
+
         const chunkContent = fs.readFileSync(chunkPath);
         
-        const fd = fs.openSync(destPath, 'a+');
-        // Записываем чанк по конкретному смещению. 
-        // Хотя мы используем флаг 'a+', fs.writeSync с позицией работает на многих системах.
-        // Но для надежности: если мы хотим писать в середину или в конкретное место, лучше использовать 'r+'.
-        // Если файла нет, создаем его.
-        fs.closeSync(fd);
+        if (!fs.existsSync(destPath)) {
+            fs.writeFileSync(destPath, '');
+        }
 
-        const fd2 = fs.openSync(destPath, fs.existsSync(destPath) ? 'r+' : 'w');
-        fs.writeSync(fd2, chunkContent, 0, chunkContent.length, startOffset);
-        fs.closeSync(fd2);
+        const fd = fs.openSync(destPath, 'r+');
+        fs.writeSync(fd, chunkContent, 0, chunkContent.length, startOffset);
+        fs.closeSync(fd);
         
         fs.unlinkSync(chunkPath);
 

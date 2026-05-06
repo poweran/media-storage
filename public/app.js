@@ -134,26 +134,109 @@ function updateBreadcrumbs() {
 
 const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB chunks for Cloudflare
 
+// ============================
+// Управление очередью загрузки (Persistence)
+// ============================
+let uploadQueue = JSON.parse(localStorage.getItem('uploadQueue') || '[]');
+
+function saveQueue() {
+    localStorage.setItem('uploadQueue', JSON.stringify(uploadQueue));
+    updateResumeHint();
+}
+
+function updateResumeHint() {
+    const hint = document.getElementById('resumeHint');
+    if (!hint) return;
+    
+    if (uploadQueue.length > 0) {
+        hint.style.display = 'block';
+        const fileNames = uploadQueue.map(q => q.name).join(', ');
+        hint.innerHTML = `
+            <div class="resume-banner">
+                <div style="flex: 1;">
+                    <strong style="display: block; margin-bottom: 4px;">Прерванная загрузка:</strong>
+                    <span style="font-size: 13px; color: var(--text-secondary);">${fileNames}</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="modal-btn modal-btn-confirm" onclick="triggerResume()" style="padding: 6px 16px; font-size: 13px; white-space: nowrap;">Продолжить</button>
+                    <button class="modal-btn modal-btn-cancel" onclick="clearQueue()" style="padding: 6px 16px; font-size: 13px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); white-space: nowrap;">Отмена</button>
+                </div>
+            </div>
+        `;
+    } else {
+        hint.style.display = 'none';
+    }
+}
+
+function triggerResume() {
+    fileInput.click();
+}
+
+function clearQueue() {
+    if (confirm('Вы уверены, что хотите очистить список прерванных загрузок?')) {
+        uploadQueue = [];
+        saveQueue();
+    }
+}
+
+// Вызываем сразу и по готовности DOM
+function init() {
+    updateResumeHint();
+    loadVideos();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
+
 async function uploadFiles(files) {
+    console.log('[Upload] uploadFiles called with', files.length, 'files');
     if (files.length === 0) return;
 
     progressContainer.style.display = 'block';
     let totalUploadedCount = 0;
 
+    // Добавляем новые файлы в очередь, если их там нет
+    files.forEach(f => {
+        const exists = uploadQueue.find(q => q.name === f.name && q.size === f.size);
+        if (!exists) {
+            console.log('[Upload] Adding to queue:', f.name);
+            uploadQueue.push({ name: f.name, size: f.size, type: f.type, folderId: currentFolderId });
+        } else {
+            console.log('[Upload] File already in queue:', f.name);
+        }
+    });
+    saveQueue();
+
+    // Временно скрываем плашку возобновления, пока идет процесс
+    const hint = document.getElementById('resumeHint');
+    if (hint) hint.style.display = 'none';
+
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        console.log('[Upload] Starting upload for:', file.name, 'size:', file.size);
         progressText.textContent = `Preparing ${file.name}...`;
         progressFill.style.width = '0%';
         progressPercent.textContent = '0%';
 
         try {
             const result = await (file.size > 90 * 1024 * 1024 ? uploadFileInChunks(file) : uploadFileNormal(file));
+            console.log('[Upload] Upload result for', file.name, ':', result);
+            
             if (result && result.uploaded) {
                 totalUploadedCount += result.uploaded.length;
+                // Удаляем из очереди при успешном завершении
+                uploadQueue = uploadQueue.filter(q => !(q.name === file.name && q.size === file.size));
+                console.log('[Upload] Removed from queue:', file.name);
+                saveQueue();
             }
         } catch (err) {
-            console.error(err);
-            showToast(`Failed to upload ${file.name}`, 'error');
+            console.error('[Upload] Error uploading', file.name, ':', err);
+            showToast(`Failed to upload ${file.name}: ${err.message}`, 'error');
+            // При ошибке возвращаем плашку, если в очереди еще что-то есть
+            updateResumeHint();
         }
     }
 
@@ -163,8 +246,11 @@ async function uploadFiles(files) {
     }
 
     setTimeout(() => {
-        progressContainer.style.display = 'none';
+        if (uploadQueue.length === 0) {
+            progressContainer.style.display = 'none';
+        }
         progressFill.style.width = '0%';
+        updateResumeHint();
     }, 1500);
 
     fileInput.value = '';
@@ -225,7 +311,17 @@ function uploadFileInChunks(file) {
         }
 
         let currentChunk = Math.floor(offset / CHUNK_SIZE);
-        const MAX_RETRIES = 5;
+        console.log(`[Upload] ${file.name}: size=${file.size}, chunks=${totalChunks}, resuming from chunk=${currentChunk} (offset=${offset})`);
+        
+        // Визуально отображаем прогресс сразу при возобновлении
+        if (offset > 0) {
+            const percent = Math.round((offset / file.size) * 100);
+            progressFill.style.width = percent + '%';
+            progressPercent.textContent = percent + '%';
+            progressText.textContent = `Resuming ${file.name}... (${formatSize(offset)} / ${formatSize(file.size)})`;
+        }
+
+        const MAX_RETRIES = 10;
 
         const sendChunk = async (chunkIdx, retryCount = 0) => {
             const start = chunkIdx * CHUNK_SIZE;
@@ -239,15 +335,18 @@ function uploadFileInChunks(file) {
             formData.append('totalChunks', totalChunks);
             formData.append('filename', file.name);
             formData.append('mimeType', file.type);
-            if (currentFolderId) {
-                formData.append('folder_id', currentFolderId);
+            
+            const qItem = uploadQueue.find(q => q.name === file.name && q.size === file.size);
+            const folderId = currentFolderId || (qItem ? qItem.folderId : null);
+            
+            if (folderId) {
+                formData.append('folder_id', folderId);
             }
 
             try {
                 const result = await new Promise((res, rej) => {
                     const xhr = new XMLHttpRequest();
                     xhr.open('POST', '/api/upload/chunk');
-                    // Тайм-аут 2 минуты на чанк 50МБ (достаточно для медленного интернета)
                     xhr.timeout = 120000;
 
                     xhr.upload.addEventListener('progress', (e) => {
@@ -277,10 +376,10 @@ function uploadFileInChunks(file) {
                 }
             } catch (err) {
                 if (retryCount < MAX_RETRIES) {
-                    console.warn(`[Upload] Chunk ${chunkIdx} failed (attempt ${retryCount + 1}). Retrying in 2s...`, err);
-                    setTimeout(() => sendChunk(chunkIdx, retryCount + 1), 2000);
+                    console.warn(`[Upload] Chunk ${chunkIdx} failed (attempt ${retryCount + 1}). Retrying in 5s...`, err);
+                    setTimeout(() => sendChunk(chunkIdx, retryCount + 1), 5000);
                 } else {
-                    reject(new Error(`Failed to upload chunk ${chunkIdx} after ${MAX_RETRIES} attempts: ${err.message}`));
+                    reject(new Error(`Failed after ${MAX_RETRIES} attempts: ${err.message}`));
                 }
             }
         };
