@@ -399,9 +399,9 @@ body::after {
 /* Video Card */
 .video-card {
   background: var(--bg-card);
+  /* overflow: hidden; */
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
   transition: all var(--transition);
   position: relative;
   display: flex;
@@ -428,6 +428,8 @@ body::after {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
 }
 
 .video-thumb img,
@@ -467,6 +469,8 @@ body::after {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
   color: #a5b4fc;
 }
 
@@ -549,6 +553,38 @@ body::after {
   padding: 12px 20px;
   border-top: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.1);
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+}
+
+.share-container {
+  position: relative;
+}
+
+.share-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  background: rgba(15, 15, 25, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  display: none;
+  gap: 6px;
+  z-index: 100;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: menuIn 0.2s ease;
+}
+
+.share-menu.show {
+  display: flex;
+}
+
+.share-menu .icon-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .icon-btn {

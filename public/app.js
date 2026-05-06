@@ -365,14 +365,26 @@ async function loadVideos() {
           </div>
         </div>
         <div class="video-actions">
-          <button class="icon-btn ${folder.is_shared ? 'shared' : ''}" onclick="toggleFolderShare(${folder.id})" title="${folder.is_shared ? 'Remove link' : 'Share folder'}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-            </svg>
-            ${folder.is_shared ? 'Link' : 'Share'}
-          </button>
+          <div class="share-container">
+            <button class="icon-btn ${folder.is_shared ? 'shared' : ''}" onclick="folder.is_shared ? toggleShareMenu(event, ${folder.id}, true) : toggleFolderShare(${folder.id})" title="${folder.is_shared ? 'Share options' : 'Share folder'}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              ${folder.is_shared ? 'Link' : 'Share'}
+            </button>
+            <div class="share-menu" id="share-menu-f-${folder.id}">
+              <button class="icon-btn" onclick="copyShareLink(${folder.id}, true)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                Скопировать
+              </button>
+              <button class="icon-btn danger" onclick="unshareItem(${folder.id}, true)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                Закрыть доступ
+              </button>
+            </div>
+          </div>
           ${folder.is_shared ? `
           <button class="icon-btn" onclick="openExpireModal(${folder.id}, '${folder.share_expires_at}', true)" title="Change expiration">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -456,14 +468,26 @@ async function loadVideos() {
           </div>
         </div>
         <div class="video-actions">
-          <button class="icon-btn ${video.is_shared ? 'shared' : ''}" onclick="toggleShare(${video.id})" title="${video.is_shared ? 'Remove link' : 'Share'}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-            </svg>
-            ${video.is_shared ? 'Link' : 'Share'}
-          </button>
+          <div class="share-container">
+            <button class="icon-btn ${video.is_shared ? 'shared' : ''}" onclick="video.is_shared ? toggleShareMenu(event, ${video.id}, false) : toggleShare(${video.id})" title="${video.is_shared ? 'Share options' : 'Share'}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              ${video.is_shared ? 'Link' : 'Share'}
+            </button>
+            <div class="share-menu" id="share-menu-v-${video.id}">
+              <button class="icon-btn" onclick="copyShareLink(${video.id}, false)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                Скопировать
+              </button>
+              <button class="icon-btn danger" onclick="unshareItem(${video.id}, false)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                Закрыть доступ
+              </button>
+            </div>
+          </div>
           ${video.is_shared ? `
           <button class="icon-btn" onclick="openExpireModal(${video.id}, '${video.share_expires_at}', false)" title="Change expiration">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -522,18 +546,109 @@ async function toggleShare(id) {
                 await navigator.clipboard.writeText(url);
                 showToast('Link copied to clipboard.');
             } catch {
-                // Fallback: показать ссылку
                 prompt('Public link:', url);
             }
+            if (typeof loadVideos === 'function') loadVideos();
+            else {
+                // Update button if on player page
+                const btn = document.getElementById('shareBtn');
+                if (btn) btn.classList.add('shared');
+            }
+            // Show menu after small delay to allow re-render
+            setTimeout(() => {
+                const menu = document.getElementById(`share-menu-v-${id}`);
+                if (menu) menu.classList.add('show');
+            }, 100);
         } else {
             showToast('Public link removed');
+            if (typeof loadVideos === 'function') loadVideos();
+            else {
+                const btn = document.getElementById('shareBtn');
+                if (btn) btn.classList.remove('shared');
+            }
         }
-
-        loadVideos();
     } catch (err) {
         showToast('Error', 'error');
     }
 }
+
+async function toggleFolderShare(id) {
+    try {
+        const res = await fetch(`/api/folders/${id}/share`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.is_shared) {
+            const url = window.location.origin + '/s/f/' + data.share_id;
+            try {
+                await navigator.clipboard.writeText(url);
+                showToast('Folder link copied to clipboard.');
+            } catch {
+                prompt('Public folder link:', url);
+            }
+            if (typeof loadVideos === 'function') loadVideos();
+            // Show menu after small delay
+            setTimeout(() => {
+                const menu = document.getElementById(`share-menu-f-${id}`);
+                if (menu) menu.classList.add('show');
+            }, 100);
+        } else {
+            showToast('Public folder link removed');
+            if (typeof loadVideos === 'function') loadVideos();
+        }
+    } catch (err) {
+        showToast('Error', 'error');
+    }
+}
+
+function toggleShareMenu(event, id, isFolder) {
+    event.stopPropagation();
+    const menuId = `share-menu-${isFolder ? 'f' : 'v'}-${id}`;
+    const menu = document.getElementById(menuId);
+    
+    // Close other menus
+    document.querySelectorAll('.share-menu.show').forEach(m => {
+        if (m !== menu) m.classList.remove('show');
+    });
+
+    if (menu) {
+        menu.classList.toggle('show');
+    }
+}
+
+async function copyShareLink(id, isFolder) {
+    try {
+        const endpoint = isFolder ? `/api/folders/${id}` : `/api/videos/${id}`;
+        const res = await fetch(endpoint);
+        const data = await res.json();
+        
+        if (data.share_id) {
+            const url = window.location.origin + (isFolder ? '/s/f/' : '/s/') + data.share_id;
+            await navigator.clipboard.writeText(url);
+            showToast('Link copied to clipboard');
+        }
+    } catch (err) {
+        showToast('Failed to copy', 'error');
+    }
+    // Hide menu
+    document.querySelectorAll('.share-menu').forEach(m => m.classList.remove('show'));
+}
+
+async function unshareItem(id, isFolder) {
+    if (isFolder) {
+        await toggleFolderShare(id);
+    } else {
+        await toggleShare(id);
+    }
+    // Hide menu
+    document.querySelectorAll('.share-menu').forEach(m => m.classList.remove('show'));
+}
+
+// Global click listener to close menus
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.share-container')) {
+        document.querySelectorAll('.share-menu.show').forEach(m => m.classList.remove('show'));
+    }
+});
 
 async function regenerateShareLink(id) {
     if (!confirm('Are you sure you want to regenerate the link? The old link will stop working.')) return;
@@ -555,29 +670,6 @@ async function regenerateShareLink(id) {
         }
     } catch (err) {
         showToast('Network error', 'error');
-    }
-}
-
-async function toggleFolderShare(id) {
-    try {
-        const res = await fetch(`/api/folders/${id}/share`, { method: 'POST' });
-        const data = await res.json();
-
-        if (data.is_shared) {
-            const url = window.location.origin + '/s/f/' + data.share_id;
-            try {
-                await navigator.clipboard.writeText(url);
-                showToast('Folder link copied to clipboard.');
-            } catch {
-                prompt('Public folder link:', url);
-            }
-        } else {
-            showToast('Public folder link removed');
-        }
-
-        loadVideos();
-    } catch (err) {
-        showToast('Error', 'error');
     }
 }
 

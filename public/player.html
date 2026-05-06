@@ -162,17 +162,43 @@
                     document.title = video.filename + ' — ' + (window.siteTitle || 'Provideo Media Holding');
 
                     // Share button
-                    document.getElementById('shareBtn').addEventListener('click', async () => {
-                        const res = await fetch('/api/videos/' + id + '/share', { method: 'POST' });
-                        const data = await res.json();
-                        if (data.share_id) {
-                            const url = window.location.origin + '/s/' + data.share_id;
-                            await navigator.clipboard.writeText(url);
-                            showToast('Link copied.');
+                    const shareBtn = document.getElementById('shareBtn');
+                    const updateShareBtn = (isShared) => {
+                        if (isShared) shareBtn.classList.add('shared');
+                        else shareBtn.classList.remove('shared');
+                    };
+                    
+                    updateShareBtn(video.is_shared);
+
+                    shareBtn.addEventListener('click', async (e) => {
+                        // We need to know if it's currently shared
+                        const currentRes = await fetch('/api/videos/' + id);
+                        const currentVideo = await currentRes.json();
+                        
+                        if (currentVideo.is_shared) {
+                            toggleShareMenu(e, id, false);
                         } else {
-                            showToast('Public link removed');
+                            await toggleShare(id);
                         }
                     });
+
+                    // Add menu to the DOM
+                    const shareContainer = shareBtn.parentElement;
+                    shareContainer.classList.add('share-container');
+                    const menu = document.createElement('div');
+                    menu.className = 'share-menu';
+                    menu.id = `share-menu-v-${id}`;
+                    menu.innerHTML = `
+                        <button class="icon-btn" onclick="copyShareLink(${id}, false)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            Скопировать
+                        </button>
+                        <button class="icon-btn danger" onclick="unshareItem(${id}, false)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                            Закрыть доступ
+                        </button>
+                    `;
+                    shareContainer.appendChild(menu);
                 });
         })();
     </script>
