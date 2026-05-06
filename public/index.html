@@ -107,7 +107,7 @@
           </div>
         </div>
         <div class="videos-actions" style="display: flex; align-items: center; gap: 16px;">
-          <input type="text" id="searchInput" placeholder="Search files & folders"
+          <input type="search" id="searchInput" name="q" placeholder="Search files & folders" autocomplete="off"
             style="padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); outline: none; font-size: 14px; width: 250px;">
           <button class="icon-btn" onclick="openFolderModal()" title="Create Folder">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -138,7 +138,7 @@
   <div class="modal-overlay" id="renameModal" style="display: none;">
     <div class="modal">
       <h3>Rename</h3>
-      <input type="text" class="modal-input" id="renameInput" placeholder="New name">
+      <input type="text" class="modal-input" id="renameInput" placeholder="New name" autocomplete="off">
       <div class="modal-actions">
         <button class="modal-btn modal-btn-cancel" onclick="closeRenameModal()">Cancel</button>
         <button class="modal-btn modal-btn-confirm" onclick="confirmRename()">Save</button>
@@ -162,8 +162,8 @@
   <div class="modal-overlay" id="addUserModal" style="display: none;">
     <div class="modal">
       <h3>Add New User</h3>
-      <input type="text" class="modal-input" id="newUsernameInput" placeholder="Username" style="margin-bottom: 12px;">
-      <input type="password" class="modal-input" id="newUserPasswordInput" placeholder="Password">
+      <input type="text" class="modal-input" id="newUsernameInput" placeholder="Username" style="margin-bottom: 12px;" autocomplete="off">
+      <input type="password" class="modal-input" id="newUserPasswordInput" placeholder="Password" autocomplete="new-password">
       <div class="modal-actions" style="margin-top: 16px;">
         <button class="modal-btn modal-btn-cancel" onclick="closeAddUserModal()">Cancel</button>
         <button class="modal-btn modal-btn-confirm" onclick="confirmAddUser()">Create</button>
@@ -179,7 +179,7 @@
         <label for="siteTitleInput"
           style="display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500;">Site
           Title</label>
-        <input type="text" class="modal-input" id="siteTitleInput" placeholder="Site Title"
+        <input type="text" class="modal-input" id="siteTitleInput" placeholder="Site Title" autocomplete="off"
           style="margin-bottom: 12px; width: 100%; box-sizing: border-box; padding: 12px 16px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 15px;">
       </div>
       <div class="modal-actions" style="margin-top: 16px;">
@@ -193,7 +193,7 @@
   <div class="modal-overlay" id="folderModal" style="display: none;">
     <div class="modal">
       <h3 id="folderModalTitle">Folder</h3>
-      <input type="text" class="modal-input" id="folderInput" placeholder="Folder name"
+      <input type="text" class="modal-input" id="folderInput" placeholder="Folder name" autocomplete="off"
         onkeydown="if(event.key === 'Enter') confirmCreateFolder(); if(event.key === 'Escape') closeFolderModal();">
       <div class="modal-actions">
         <button class="modal-btn modal-btn-cancel" onclick="closeFolderModal()">Cancel</button>
