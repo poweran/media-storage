@@ -1,11 +1,11 @@
 // ============================
 // Глобальный перехват ошибок доступа (401/403)
 // ============================
-(function() {
+(function () {
     const checkAndRedirect = (status, url) => {
         const path = window.location.pathname;
         const isPublic = path.startsWith('/s/') || path.includes('secure-admin');
-        
+
         if ((status === 401 || status === 403) && !isPublic) {
             console.warn(`[Auth] Access denied (${status}) for ${url}. Redirecting to login...`);
             const redirectUrl = '/secure-admin?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
@@ -15,7 +15,7 @@
 
     // Перехват fetch
     const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
+    window.fetch = async function (...args) {
         try {
             const response = await originalFetch.apply(this, args);
             checkAndRedirect(response.status, args[0]?.url || args[0]);
@@ -27,7 +27,7 @@
 
     // Перехват XMLHttpRequest
     const originalOpen = XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open = function(method, url) {
+    XMLHttpRequest.prototype.open = function (method, url) {
         this.addEventListener('load', () => checkAndRedirect(this.status, url));
         return originalOpen.apply(this, arguments);
     };
@@ -377,11 +377,11 @@ async function loadVideos() {
             <div class="share-menu" id="share-menu-f-${folder.id}">
               <button class="icon-btn" onclick="copyShareLink(${folder.id}, true)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                Скопировать
+                copy
               </button>
               <button class="icon-btn danger" onclick="unshareItem(${folder.id}, true)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
-                Закрыть доступ
+                unshare
               </button>
             </div>
           </div>
@@ -480,11 +480,11 @@ async function loadVideos() {
             <div class="share-menu" id="share-menu-v-${video.id}">
               <button class="icon-btn" onclick="copyShareLink(${video.id}, false)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                Скопировать
+                copy
               </button>
               <button class="icon-btn danger" onclick="unshareItem(${video.id}, false)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
-                Закрыть доступ
+                unshare
               </button>
             </div>
           </div>
@@ -604,7 +604,7 @@ function toggleShareMenu(event, id, isFolder) {
     event.stopPropagation();
     const menuId = `share-menu-${isFolder ? 'f' : 'v'}-${id}`;
     const menu = document.getElementById(menuId);
-    
+
     // Close other menus
     document.querySelectorAll('.share-menu.show').forEach(m => {
         if (m !== menu) m.classList.remove('show');
@@ -620,7 +620,7 @@ async function copyShareLink(id, isFolder) {
         const endpoint = isFolder ? `/api/folders/${id}` : `/api/videos/${id}`;
         const res = await fetch(endpoint);
         const data = await res.json();
-        
+
         if (data.share_id) {
             const url = window.location.origin + (isFolder ? '/s/f/' : '/s/') + data.share_id;
             await navigator.clipboard.writeText(url);
