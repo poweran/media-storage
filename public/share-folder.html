@@ -368,6 +368,13 @@
                                   <a href="${link}" class="icon-btn" style="flex-grow: 1; justify-content: center;">
                                     ${isImage ? 'View Photo' : 'Watch Video'}
                                   </a>
+                                  <a href="/api/share/folder/${shareId}/video/${vid.id}/stream" class="icon-btn" title="Download" download="${escapeHtml(vid.filename)}">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                      <polyline points="7 10 12 15 17 10" />
+                                      <line x1="12" y1="15" x2="12" y2="3" />
+                                    </svg>
+                                  </a>
                                 </div>
                               </div>
                             `;

@@ -32,6 +32,13 @@
                         <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
                     </svg>
                 </button>
+                <a href="" class="icon-btn" id="playerDownloadBtn" title="Download" download>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                </a>
             </div>
         </header>
 
@@ -160,6 +167,10 @@
                         '<span>' + formatSize(video.size) + '</span>' +
                         '<span>' + new Date(video.created_at).toLocaleDateString('en-US') + '</span>';
                     document.title = video.filename + ' — ' + (window.siteTitle || 'Provideo Media Holding');
+
+                    const downloadBtn = document.getElementById('playerDownloadBtn');
+                    downloadBtn.href = '/api/stream/' + id;
+                    downloadBtn.setAttribute('download', video.filename);
 
                     // Share button
                     const shareBtn = document.getElementById('shareBtn');
