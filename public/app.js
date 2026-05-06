@@ -1010,10 +1010,12 @@ async function loadSettings() {
             }
 
             // Обновляем ограничение размера файла в подсказке
-            if (data.max_file_size_gb) {
+            if (data.max_file_size_gb || data.max_file_count) {
                 const hint = document.getElementById('uploadHint');
                 if (hint) {
-                    hint.textContent = hint.textContent.replace(/\d+ GB/, data.max_file_size_gb + ' GB');
+                    const sizeText = data.max_file_size_gb ? `up to ${data.max_file_size_gb} GB` : 'up to 2 GB';
+                    const countText = data.max_file_count ? `Up to ${data.max_file_count} files at once` : 'Up to 50 files at once';
+                    hint.textContent = `Video and photo files ${sizeText} • ${countText}`;
                 }
             }
         }

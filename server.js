@@ -106,6 +106,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 const MAX_FILE_SIZE_GB = parseInt(process.env.MAX_FILE_SIZE_GB) || 2;
+const MAX_FILE_COUNT = parseInt(process.env.MAX_FILE_COUNT) || 50;
 const upload = multer({
     storage,
     fileFilter,
@@ -276,7 +277,8 @@ app.post('/api/logout', (req, res) => {
 
 app.get('/api/settings', (req, res) => {
     const settings = {
-        max_file_size_gb: MAX_FILE_SIZE_GB
+        max_file_size_gb: MAX_FILE_SIZE_GB,
+        max_file_count: MAX_FILE_COUNT
     };
     const rows = db.prepare('SELECT key, value FROM settings').all();
     rows.forEach(r => settings[r.key] = r.value);
@@ -387,7 +389,7 @@ app.get('/api/videos', (req, res) => {
 });
 
 // Массовая загрузка видео
-app.post('/api/upload', upload.array('files', 50), (req, res) => {
+app.post('/api/upload', upload.array('files', MAX_FILE_COUNT), (req, res) => {
     if (!req.files || req.files.length === 0) {
         return res.status(400).json({ error: 'No files selected' });
     }
