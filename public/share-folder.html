@@ -250,6 +250,7 @@
         (function () {
             const pathParts = window.location.pathname.split('/');
             const shareId = pathParts[pathParts.length - 1]; // /s/f/:shareId
+            let attentionShown = false;
 
             const urlParams = new URLSearchParams(window.location.search);
             const subfolderId = urlParams.get('subfolder_id');
@@ -277,7 +278,7 @@
                     })
                     .then(data => {
                         errorState.style.display = 'none';
-                        const { folder, subfolders, videos, breadcrumbs } = data;
+                        const { folder, subfolders, videos, breadcrumbs, share_expires_at } = data;
 
                         // Заголовок
                         folderTitleEl.textContent = folder.name;
@@ -379,23 +380,22 @@
                         document.title = `${folder.name} — ${siteTitle}`;
                         document.getElementById('logoText').textContent = siteTitle;
 
-                        const popupKey = 'attentionPopupShown_f' + folder.id + '_' + folder.share_expires_at;
-                        if (!sessionStorage.getItem(popupKey)) {
+                        if (!attentionShown && share_expires_at) {
+                            attentionShown = true;
                             const popup = document.createElement('div');
                             popup.innerHTML = `
                                 <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
                                     <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; max-width: 600px; width: 100%; padding: 32px; text-align: center; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                                        <h2 style="margin-top: 0; margin-bottom: 16px; color: var(--text-primary);">ՈՒdelays / ATTENTION</h2>
+                                        <h2 style="margin-top: 0; margin-bottom: 16px; color: var(--text-primary);">ՈՒՇԱԴՐՈՒԹՅՈՒՆ / ATTENTION</h2>
                                         <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px; color: var(--text-secondary);">
-                                        Խնդրում ենք Ձեր ֆայլերը ներբեռնել մինչև <strong>${new Date(folder.share_expires_at).toLocaleDateString('am-AM')}</strong>, քանի որ նշված ժամկետի ավարտից հետո հղումը այլևս հասանելի չի լինի։<br>Կրկին շնորհակալություն համագործակցության համար։<br><br>
-                                        Please download your files within <strong>${new Date(folder.share_expires_at).toLocaleDateString('en-US')}</strong>, as the link will no longer be available after this period.<br>Thank you again for your cooperation.
+                                        Խնդրում ենք Ձեր ֆայլերը ներբեռնել մինչև <strong>${new Date(share_expires_at).toLocaleDateString('am-AM')}</strong>, քանի որ նշված ժամկետի ավարտից հետո հղումը այլևս հասանելի չի լինի։<br>Կրկին շնորհակալություն համագործակցության համար։<br><br>
+                                        Please download your files within <strong>${new Date(share_expires_at).toLocaleDateString('en-US')}</strong>, as the link will no longer be available after this period.<br>Thank you again for your cooperation.
                                         </p>
                                         <button onclick="this.parentElement.parentElement.remove()" style="padding: 12px 32px; font-size: 16px; font-weight: 600; border-radius: 8px; border: none; background: #646cff; color: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#535bf2'" onmouseout="this.style.background='#646cff'">OK</button>
                                     </div>
                                 </div>
                             `;
                             document.body.appendChild(popup);
-                            sessionStorage.setItem(popupKey, 'true');
                         }
                     })
                     .catch(e => {
@@ -410,11 +410,11 @@
                             errorState.innerHTML = `
                             <div style="text-align: left; margin: 0 auto; max-width: 800px;">
                                 <p style="font-size: 16px; line-height: 1.6; color: var(--text-primary);">
-                                    Հարգելի այdelays,<br><br>
-                                    Տdelays dedelays,<br>
-                                    Eeners delays delays delays delays.<br>
-                                    Oners delays delays delays.<br><br>
-                                    Հargelit՝<br>
+                                    Հարգելի այցելու,<br><br>
+                                    Տեղեկացնում ենք, որ տվյալ հղման գործողության նախատեսված ժամկետն ավարտվել է և այն ներկայումս հասանելի չէ։<br>
+                                    Եթե դեռևս չեք հասցրել ներբեռնել Ձեր ֆայլերը, խնդրում ենք նկատի ունենալ, որ հղման ժամկետի ավարտից հետո 15 օրվա ընթացքում կարող եք ներբեռնել ։<br>
+                                    Ուստի խնդրում ենք կապ հաստատել մեզ հետ։<br><br>
+                                    Հարգանքներով՝<br>
                                     PROVIDEO MEDIA HOLDING<br><br>
                                     Dear Visitor,<br><br>
                                     We would like to inform you that the provided link has expired and is currently unavailable.<br>

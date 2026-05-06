@@ -815,7 +815,7 @@ app.get('/api/share/folder/:shareId', (req, res) => {
     }
     breadcrumbs.unshift({ id: rootFolder.id, name: rootFolder.name });
 
-    res.json({ folder: targetFolder, subfolders, videos, breadcrumbs });
+    res.json({ folder: targetFolder, subfolders, videos, breadcrumbs, share_expires_at: rootFolder.share_expires_at });
 });
 
 // Проверка права доступа к конкретному видео внутри публичной папки
