@@ -69,11 +69,16 @@ function isPublicPath(pathname) {
     );
 }
 
-// Создание папки uploads
+// Создание папок uploads и temp_uploads
 const storagePath = process.env.STORAGE_PATH ? path.resolve(process.env.STORAGE_PATH) : __dirname;
 const uploadsDir = path.join(storagePath, 'uploads');
+const tempDir = path.join(storagePath, 'temp_uploads');
+
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
+}
+if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
 }
 
 // Настройка multer
@@ -429,6 +434,67 @@ app.post('/api/upload', upload.array('files', 50), (req, res) => {
         res.json({ uploaded: results });
     } catch (err) {
         res.status(500).json({ error: 'Storage error' });
+    }
+});
+
+// Чанковая загрузка (для больших файлов > 100MB)
+app.post('/api/upload/chunk', upload.single('chunk'), async (req, res) => {
+    const { uploadId, chunkIndex, totalChunks, filename, folder_id, mimeType } = req.body;
+
+    if (!req.file) {
+        return res.status(400).json({ error: 'No chunk received' });
+    }
+
+    const chunkPath = req.file.path;
+    const destPath = path.join(tempDir, uploadId);
+
+    try {
+        // Дописываем чанк в файл
+        const chunkContent = fs.readFileSync(chunkPath);
+        fs.appendFileSync(destPath, chunkContent);
+        fs.unlinkSync(chunkPath); // Удаляем временный файл мультера
+
+        if (parseInt(chunkIndex) === parseInt(totalChunks) - 1) {
+            // Последний чанк получен, финализируем файл
+            const finalFilename = filename;
+            const ext = path.extname(finalFilename);
+            const storedName = nanoid(16) + ext;
+            const finalPath = path.join(uploadsDir, storedName);
+
+            fs.renameSync(destPath, finalPath);
+
+            const stats = fs.statSync(finalPath);
+
+            const info = db.prepare(`
+                INSERT INTO videos (filename, stored_name, size, mime_type, uploader_username, folder_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `).run(finalFilename, storedName, stats.size, mimeType, req.user.username, folder_id || null);
+
+            const result = {
+                id: info.lastInsertRowid,
+                filename: finalFilename,
+                stored_name: storedName,
+                size: stats.size,
+                mime_type: mimeType,
+                uploader_username: req.user.username,
+                folder_id: folder_id || null
+            };
+
+            if (mimeType.startsWith('video/')) {
+                transcodeQueue.push({
+                    input: finalPath,
+                    filename: finalFilename
+                });
+                processQueue();
+            }
+
+            res.json({ success: true, uploaded: [result] });
+        } else {
+            res.json({ success: true, message: 'Chunk received' });
+        }
+    } catch (err) {
+        console.error('Chunk upload error:', err);
+        res.status(500).json({ error: 'Failed to process chunk' });
     }
 });
 

@@ -97,59 +97,141 @@ function updateBreadcrumbs() {
     bc.innerHTML = html;
 }
 
-function uploadFiles(files) {
-    const formData = new FormData();
-    files.forEach(file => formData.append('files', file));
-    if (currentFolderId) {
-        formData.append('folder_id', currentFolderId);
+const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB chunks for Cloudflare
+
+async function uploadFiles(files) {
+    if (files.length === 0) return;
+
+    progressContainer.style.display = 'block';
+    let totalUploadedCount = 0;
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        progressText.textContent = `Preparing ${file.name}...`;
+        progressFill.style.width = '0%';
+        progressPercent.textContent = '0%';
+
+        try {
+            const result = await (file.size > 90 * 1024 * 1024 ? uploadFileInChunks(file) : uploadFileNormal(file));
+            if (result && result.uploaded) {
+                totalUploadedCount += result.uploaded.length;
+            }
+        } catch (err) {
+            console.error(err);
+            showToast(`Failed to upload ${file.name}`, 'error');
+        }
     }
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload');
+    if (totalUploadedCount > 0) {
+        showToast(`Uploaded ${totalUploadedCount} files`);
+        loadVideos();
+    }
 
-    // Показать прогресс
-    progressContainer.style.display = 'block';
-    progressText.textContent = `Uploading ${files.length} files...`;
-
-    xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-            const percent = Math.round((e.loaded / e.total) * 100);
-            progressFill.style.width = percent + '%';
-            progressPercent.textContent = percent + '%';
-            progressText.textContent = `Uploading ${files.length} files... (${formatSize(e.loaded)} / ${formatSize(e.total)})`;
-        }
-    });
-
-    xhr.addEventListener('load', () => {
-        if (xhr.status === 200) {
-            const data = JSON.parse(xhr.responseText);
-            showToast(`Uploaded ${data.uploaded.length} files`);
-            loadVideos();
-        } else {
-            try {
-                const err = JSON.parse(xhr.responseText);
-                showToast(err.error || 'Upload error', 'error');
-            } catch {
-                showToast('Upload error', 'error');
-            }
-        }
-
-        // Скрыть прогресс через 1.5 сек
-        setTimeout(() => {
-            progressContainer.style.display = 'none';
-            progressFill.style.width = '0%';
-        }, 1500);
-
-        fileInput.value = '';
-    });
-
-    xhr.addEventListener('error', () => {
-        showToast('Network error', 'error');
+    setTimeout(() => {
         progressContainer.style.display = 'none';
-        fileInput.value = '';
-    });
+        progressFill.style.width = '0%';
+    }, 1500);
 
-    xhr.send(formData);
+    fileInput.value = '';
+}
+
+function uploadFileNormal(file) {
+    return new Promise((resolve, reject) => {
+        const formData = new FormData();
+        formData.append('files', file);
+        if (currentFolderId) {
+            formData.append('folder_id', currentFolderId);
+        }
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/upload');
+
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                progressFill.style.width = percent + '%';
+                progressPercent.textContent = percent + '%';
+                progressText.textContent = `Uploading ${file.name}... (${formatSize(e.loaded)} / ${formatSize(e.total)})`;
+            }
+        });
+
+        xhr.onload = () => {
+            if (xhr.status === 200) {
+                resolve(JSON.parse(xhr.responseText));
+            } else {
+                try {
+                    const err = JSON.parse(xhr.responseText);
+                    reject(new Error(err.error || 'Upload error'));
+                } catch {
+                    reject(new Error('Upload error'));
+                }
+            }
+        };
+
+        xhr.onerror = () => reject(new Error('Network error'));
+        xhr.send(formData);
+    });
+}
+
+function uploadFileInChunks(file) {
+    return new Promise((resolve, reject) => {
+        const uploadId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        let currentChunk = 0;
+
+        const sendNextChunk = () => {
+            const start = currentChunk * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
+
+            const formData = new FormData();
+            formData.append('chunk', chunk);
+            formData.append('uploadId', uploadId);
+            formData.append('chunkIndex', currentChunk);
+            formData.append('totalChunks', totalChunks);
+            formData.append('filename', file.name);
+            formData.append('mimeType', file.type);
+            if (currentFolderId) {
+                formData.append('folder_id', currentFolderId);
+            }
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/upload/chunk');
+
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const uploadedSoFar = start + e.loaded;
+                    const percent = Math.round((uploadedSoFar / file.size) * 100);
+                    progressFill.style.width = percent + '%';
+                    progressPercent.textContent = percent + '%';
+                    progressText.textContent = `Uploading ${file.name}... (${formatSize(uploadedSoFar)} / ${formatSize(file.size)})`;
+                }
+            });
+
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    currentChunk++;
+                    if (currentChunk < totalChunks) {
+                        sendNextChunk();
+                    } else {
+                        resolve(JSON.parse(xhr.responseText));
+                    }
+                } else {
+                    try {
+                        const err = JSON.parse(xhr.responseText);
+                        reject(new Error(err.error || 'Chunk upload error'));
+                    } catch {
+                        reject(new Error('Chunk upload error'));
+                    }
+                }
+            };
+
+            xhr.onerror = () => reject(new Error('Network error'));
+            xhr.send(formData);
+        };
+
+        sendNextChunk();
+    });
 }
 
 // ============================
