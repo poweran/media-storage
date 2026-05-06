@@ -473,6 +473,21 @@ app.post('/api/upload', upload.array('files', MAX_FILE_COUNT), (req, res) => {
     }
 });
 
+// Получить статус загрузки (для возобновления)
+app.get('/api/upload/status', (req, res) => {
+    const { uploadId } = req.query;
+    if (!uploadId) return res.status(400).json({ error: 'uploadId is required' });
+
+    const destPath = path.join(tempDir, uploadId);
+    if (fs.existsSync(destPath)) {
+        const stats = fs.statSync(destPath);
+        return res.json({ offset: stats.size });
+    }
+    res.json({ offset: 0 });
+});
+
+const CHUNK_SIZE_VAL = 50 * 1024 * 1024; // Должно совпадать с фронтендом
+
 // Чанковая загрузка (для больших файлов > 100MB)
 app.post('/api/upload/chunk', upload.single('chunk'), async (req, res) => {
     const { uploadId, chunkIndex, totalChunks, filename, folder_id, mimeType } = req.body;
@@ -485,12 +500,25 @@ app.post('/api/upload/chunk', upload.single('chunk'), async (req, res) => {
     const destPath = path.join(tempDir, uploadId);
 
     try {
-        // Дописываем чанк в файл
+        const chunkIndexNum = parseInt(chunkIndex);
+        const startOffset = chunkIndexNum * CHUNK_SIZE_VAL;
+        
         const chunkContent = fs.readFileSync(chunkPath);
-        fs.appendFileSync(destPath, chunkContent);
-        fs.unlinkSync(chunkPath); // Удаляем временный файл мультера
+        
+        const fd = fs.openSync(destPath, 'a+');
+        // Записываем чанк по конкретному смещению. 
+        // Хотя мы используем флаг 'a+', fs.writeSync с позицией работает на многих системах.
+        // Но для надежности: если мы хотим писать в середину или в конкретное место, лучше использовать 'r+'.
+        // Если файла нет, создаем его.
+        fs.closeSync(fd);
 
-        if (parseInt(chunkIndex) === parseInt(totalChunks) - 1) {
+        const fd2 = fs.openSync(destPath, fs.existsSync(destPath) ? 'r+' : 'w');
+        fs.writeSync(fd2, chunkContent, 0, chunkContent.length, startOffset);
+        fs.closeSync(fd2);
+        
+        fs.unlinkSync(chunkPath);
+
+        if (chunkIndexNum === parseInt(totalChunks) - 1) {
             // Последний чанк получен, финализируем файл
             const finalFilename = filename;
             const ext = path.extname(finalFilename);
@@ -499,18 +527,18 @@ app.post('/api/upload/chunk', upload.single('chunk'), async (req, res) => {
 
             fs.renameSync(destPath, finalPath);
 
-            const stats = fs.statSync(finalPath);
+            const finalStats = fs.statSync(finalPath);
 
             const info = db.prepare(`
                 INSERT INTO videos (filename, stored_name, size, mime_type, uploader_username, folder_id)
                 VALUES (?, ?, ?, ?, ?, ?)
-            `).run(finalFilename, storedName, stats.size, mimeType, req.user.username, folder_id || null);
+            `).run(finalFilename, storedName, finalStats.size, mimeType, req.user.username, folder_id || null);
 
             const result = {
                 id: info.lastInsertRowid,
                 filename: finalFilename,
                 stored_name: storedName,
-                size: stats.size,
+                size: finalStats.size,
                 mime_type: mimeType,
                 uploader_username: req.user.username,
                 folder_id: folder_id || null
@@ -526,7 +554,7 @@ app.post('/api/upload/chunk', upload.single('chunk'), async (req, res) => {
 
             res.json({ success: true, uploaded: [result] });
         } else {
-            res.json({ success: true, message: 'Chunk received' });
+            res.json({ success: true, message: 'Chunk received', offset: fs.statSync(destPath).size });
         }
     } catch (err) {
         console.error('Chunk upload error:', err);

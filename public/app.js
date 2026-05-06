@@ -209,20 +209,33 @@ function uploadFileNormal(file) {
 }
 
 function uploadFileInChunks(file) {
-    return new Promise((resolve, reject) => {
-        const uploadId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    return new Promise(async (resolve, reject) => {
+        // Стабильный uploadId для возможности возобновления после сбоя/перезагрузки
+        const uploadId = btoa(unescape(encodeURIComponent(file.name + file.size))).replace(/[/+=]/g, '').substr(0, 32);
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-        let currentChunk = 0;
 
-        const sendNextChunk = () => {
-            const start = currentChunk * CHUNK_SIZE;
+        let offset = 0;
+        try {
+            const statusRes = await fetch(`/api/upload/status?uploadId=${uploadId}`);
+            const statusData = await statusRes.json();
+            offset = statusData.offset || 0;
+            console.log(`[Upload] Resuming ${file.name} from offset ${offset}`);
+        } catch (err) {
+            console.error('[Upload] Failed to get status, starting from 0', err);
+        }
+
+        let currentChunk = Math.floor(offset / CHUNK_SIZE);
+        const MAX_RETRIES = 5;
+
+        const sendChunk = async (chunkIdx, retryCount = 0) => {
+            const start = chunkIdx * CHUNK_SIZE;
             const end = Math.min(start + CHUNK_SIZE, file.size);
             const chunk = file.slice(start, end);
 
             const formData = new FormData();
             formData.append('chunk', chunk);
             formData.append('uploadId', uploadId);
-            formData.append('chunkIndex', currentChunk);
+            formData.append('chunkIndex', chunkIdx);
             formData.append('totalChunks', totalChunks);
             formData.append('filename', file.name);
             formData.append('mimeType', file.type);
@@ -230,42 +243,49 @@ function uploadFileInChunks(file) {
                 formData.append('folder_id', currentFolderId);
             }
 
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/upload/chunk');
+            try {
+                const result = await new Promise((res, rej) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/api/upload/chunk');
+                    // Тайм-аут 2 минуты на чанк 50МБ (достаточно для медленного интернета)
+                    xhr.timeout = 120000;
 
-            xhr.upload.addEventListener('progress', (e) => {
-                if (e.lengthComputable) {
-                    const uploadedSoFar = start + e.loaded;
-                    const percent = Math.round((uploadedSoFar / file.size) * 100);
-                    progressFill.style.width = percent + '%';
-                    progressPercent.textContent = percent + '%';
-                    progressText.textContent = `Uploading ${file.name}... (${formatSize(uploadedSoFar)} / ${formatSize(file.size)})`;
-                }
-            });
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            const uploadedSoFar = start + e.loaded;
+                            const percent = Math.round((uploadedSoFar / file.size) * 100);
+                            progressFill.style.width = percent + '%';
+                            progressPercent.textContent = percent + '%';
+                            progressText.textContent = `Uploading ${file.name}... (${formatSize(uploadedSoFar)} / ${formatSize(file.size)})`;
+                        }
+                    });
 
-            xhr.onload = () => {
-                if (xhr.status === 200) {
-                    currentChunk++;
-                    if (currentChunk < totalChunks) {
-                        sendNextChunk();
-                    } else {
-                        resolve(JSON.parse(xhr.responseText));
-                    }
+                    xhr.onload = () => {
+                        if (xhr.status === 200) res(JSON.parse(xhr.responseText));
+                        else rej(new Error(`Server error ${xhr.status}`));
+                    };
+
+                    xhr.onerror = () => rej(new Error('Network error'));
+                    xhr.ontimeout = () => rej(new Error('Upload timeout'));
+                    xhr.send(formData);
+                });
+
+                if (chunkIdx + 1 < totalChunks) {
+                    sendChunk(chunkIdx + 1);
                 } else {
-                    try {
-                        const err = JSON.parse(xhr.responseText);
-                        reject(new Error(err.error || 'Chunk upload error'));
-                    } catch {
-                        reject(new Error('Chunk upload error'));
-                    }
+                    resolve(result);
                 }
-            };
-
-            xhr.onerror = () => reject(new Error('Network error'));
-            xhr.send(formData);
+            } catch (err) {
+                if (retryCount < MAX_RETRIES) {
+                    console.warn(`[Upload] Chunk ${chunkIdx} failed (attempt ${retryCount + 1}). Retrying in 2s...`, err);
+                    setTimeout(() => sendChunk(chunkIdx, retryCount + 1), 2000);
+                } else {
+                    reject(new Error(`Failed to upload chunk ${chunkIdx} after ${MAX_RETRIES} attempts: ${err.message}`));
+                }
+            }
         };
 
-        sendNextChunk();
+        sendChunk(currentChunk);
     });
 }
 
