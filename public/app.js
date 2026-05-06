@@ -2,18 +2,23 @@
 // Глобальный перехват ошибок доступа (401/403)
 // ============================
 (function() {
-    const isPublicPage = window.location.pathname.startsWith('/s/') || 
-                         window.location.pathname === '/secure-admin' || 
-                         window.location.pathname === '/secure-admin.html';
-    
+    const checkAndRedirect = (status, url) => {
+        const path = window.location.pathname;
+        const isPublic = path.startsWith('/s/') || path.includes('secure-admin');
+        
+        if ((status === 401 || status === 403) && !isPublic) {
+            console.warn(`[Auth] Access denied (${status}) for ${url}. Redirecting to login...`);
+            const redirectUrl = '/secure-admin?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.replace(redirectUrl);
+        }
+    };
+
     // Перехват fetch
     const originalFetch = window.fetch;
-    window.fetch = async (...args) => {
+    window.fetch = async function(...args) {
         try {
-            const response = await originalFetch(...args);
-            if ((response.status === 401 || response.status === 403) && !isPublicPage) {
-                window.location.href = '/secure-admin';
-            }
+            const response = await originalFetch.apply(this, args);
+            checkAndRedirect(response.status, args[0]?.url || args[0]);
             return response;
         } catch (err) {
             throw err;
@@ -22,12 +27,8 @@
 
     // Перехват XMLHttpRequest
     const originalOpen = XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open = function() {
-        this.addEventListener('load', function() {
-            if ((this.status === 401 || this.status === 403) && !isPublicPage) {
-                window.location.href = '/secure-admin';
-            }
-        });
+    XMLHttpRequest.prototype.open = function(method, url) {
+        this.addEventListener('load', () => checkAndRedirect(this.status, url));
         return originalOpen.apply(this, arguments);
     };
 })();
