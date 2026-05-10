@@ -341,6 +341,15 @@ app.get('/api/folders', (req, res) => {
     res.json(folders);
 });
 
+// Получить информацию о конкретной папке
+app.get('/api/folders/:id', (req, res) => {
+    const folder = db.prepare('SELECT * FROM folders WHERE id = ?').get(req.params.id);
+    if (!folder) {
+        return res.status(404).json({ error: 'Folder not found' });
+    }
+    res.json(folder);
+});
+
 // Создать папку
 app.post('/api/folders', (req, res) => {
     const { name, parent_id } = req.body;
