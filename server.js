@@ -81,16 +81,13 @@ if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
 }
 
-// Настройка multer
+// Настройка multer (загрузка во временную директорию)
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadsDir),
+    destination: (req, file, cb) => cb(null, tempDir),
     filename: (req, file, cb) => {
-        // Декодируем оригинальное имя файла для поддержки UTF-8 (кириллицы)
         file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
-
         const ext = path.extname(file.originalname);
-        const storedName = nanoid(16) + ext;
-        cb(null, storedName);
+        cb(null, nanoid(16) + ext);
     }
 });
 
@@ -179,6 +176,135 @@ function processQueue() {
 
         processNextQuality(0);
     });
+}
+
+// ==================== Утилиты работы с ФС и синхронизацией БД ====================
+
+function getMimeType(filename) {
+    const ext = path.extname(filename).toLowerCase();
+    const mimeMap = {
+        '.mp4': 'video/mp4', '.mkv': 'video/x-matroska', '.webm': 'video/webm',
+        '.avi': 'video/x-msvideo', '.mov': 'video/quicktime', '.m4v': 'video/mp4',
+        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+        '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml'
+    };
+    return mimeMap[ext] || 'application/octet-stream';
+}
+
+function ensureFolderPath(username, relativeFolderPath, rootParentId = null) {
+    if (!relativeFolderPath) return rootParentId;
+    const parts = relativeFolderPath.split(/[/\\]/).filter(Boolean);
+    let currentParentId = rootParentId;
+    let currentRelPath = username;
+
+    for (const part of parts) {
+        currentRelPath = path.join(currentRelPath, part);
+        const diskPath = path.join(uploadsDir, currentRelPath);
+        if (!fs.existsSync(diskPath)) {
+            fs.mkdirSync(diskPath, { recursive: true });
+        }
+
+        let folder;
+        if (currentParentId) {
+            folder = db.prepare('SELECT id FROM folders WHERE name = ? AND parent_id = ? AND uploader_username = ?')
+                .get(part, currentParentId, username);
+        } else {
+            folder = db.prepare('SELECT id FROM folders WHERE name = ? AND parent_id IS NULL AND uploader_username = ?')
+                .get(part, username);
+        }
+
+        if (!folder) {
+            const info = db.prepare('INSERT INTO folders (name, parent_id, uploader_username) VALUES (?, ?, ?)')
+                .run(part, currentParentId, username);
+            currentParentId = info.lastInsertRowid;
+        } else {
+            currentParentId = folder.id;
+        }
+    }
+    return currentParentId;
+}
+
+function syncUserStorage(username) {
+    if (!username) return;
+    const userDir = path.join(uploadsDir, username);
+    if (!fs.existsSync(userDir)) {
+        fs.mkdirSync(userDir, { recursive: true });
+        return;
+    }
+
+    const diskFolders = new Set();
+    const diskVideos = new Map();
+
+    function scanDir(dirPath, parentFolderId, relFolderPath) {
+        let entries = [];
+        try {
+            entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        } catch (e) {
+            return;
+        }
+
+        for (const entry of entries) {
+            const fullPath = path.join(dirPath, entry.name);
+            const relPath = relFolderPath ? `${relFolderPath}/${entry.name}` : entry.name;
+
+            if (entry.isDirectory()) {
+                let folder = db.prepare('SELECT id FROM folders WHERE name = ? AND parent_id ' + (parentFolderId ? '= ?' : 'IS NULL') + ' AND uploader_username = ?')
+                    .get(...(parentFolderId ? [entry.name, parentFolderId, username] : [entry.name, username]));
+
+                if (!folder) {
+                    const info = db.prepare('INSERT INTO folders (name, parent_id, uploader_username) VALUES (?, ?, ?)')
+                        .run(entry.name, parentFolderId, username);
+                    folder = { id: info.lastInsertRowid };
+                }
+                diskFolders.add(folder.id);
+                scanDir(fullPath, folder.id, relPath);
+            } else if (entry.isFile()) {
+                if (/_(1080p|720p|480p|360p)\.mp4$/i.test(entry.name)) {
+                    continue;
+                }
+                const mimeType = getMimeType(entry.name);
+                if (mimeType.startsWith('video/') || mimeType.startsWith('image/')) {
+                    const storedName = `${username}/${relPath}`;
+                    const stats = fs.statSync(fullPath);
+                    diskVideos.set(storedName, {
+                        filename: entry.name,
+                        stored_name: storedName,
+                        size: stats.size,
+                        mime_type: mimeType,
+                        folder_id: parentFolderId
+                    });
+                }
+            }
+        }
+    }
+
+    scanDir(userDir, null, '');
+
+    const dbVideos = db.prepare('SELECT id, stored_name FROM videos WHERE uploader_username = ?').all(username);
+    const dbVideoStoredNames = new Set(dbVideos.map(v => v.stored_name));
+
+    for (const [storedName, info] of diskVideos.entries()) {
+        if (!dbVideoStoredNames.has(storedName)) {
+            db.prepare(`
+                INSERT INTO videos (filename, stored_name, size, mime_type, uploader_username, folder_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `).run(info.filename, info.stored_name, info.size, info.mime_type, username, info.folder_id);
+
+            if (info.mime_type.startsWith('video/')) {
+                transcodeQueue.push({
+                    input: path.join(uploadsDir, info.stored_name),
+                    filename: info.filename
+                });
+            }
+        }
+    }
+    processQueue();
+
+    for (const v of dbVideos) {
+        if (v.stored_name && v.stored_name.startsWith(`${username}/`) && !diskVideos.has(v.stored_name)) {
+            db.prepare('DELETE FROM videos WHERE id = ?').run(v.id);
+        }
+    }
 }
 
 // Middleware
@@ -328,6 +454,7 @@ app.post('/api/settings', (req, res) => {
 
 // Список всех папок (только для авторизованного пользователя)
 app.get('/api/folders', (req, res) => {
+    if (req.user) syncUserStorage(req.user.username);
     const parentId = req.query.parent_id || null;
     let folders;
     if (parentId) {
@@ -335,9 +462,6 @@ app.get('/api/folders', (req, res) => {
     } else {
         folders = db.prepare('SELECT * FROM folders WHERE parent_id IS NULL ORDER BY name ASC').all();
     }
-    // Так как у нас нет строгого ограничения на просмотр "чужих" папок (судя по `videos`),
-    // но можно отфильтровать или просто отдаем все. 
-    // Поскольку у нас загружаются и шарятся все видео вместе, папки тоже общие.
     res.json(folders);
 });
 
@@ -415,6 +539,7 @@ app.delete('/api/folders/:id', (req, res) => {
 
 // Список видео в конкретной папке (или в корне)
 app.get('/api/videos', (req, res) => {
+    if (req.user) syncUserStorage(req.user.username);
     const folderId = req.query.folder_id || null;
     let videos;
     if (folderId) {
@@ -431,53 +556,53 @@ app.post('/api/upload', upload.array('files', MAX_FILE_COUNT), (req, res) => {
         return res.status(400).json({ error: 'No files selected' });
     }
 
-    const folderId = req.body.folder_id || null;
+    const baseFolderId = req.body.folder_id ? parseInt(req.body.folder_id) : null;
+    const relativePaths = Array.isArray(req.body.relative_paths)
+        ? req.body.relative_paths
+        : (req.body.relative_paths ? [req.body.relative_paths] : []);
 
-    const insert = db.prepare(`
-    INSERT INTO videos (filename, stored_name, size, mime_type, uploader_username, folder_id)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
+    const username = req.user.username;
+    const results = [];
 
-    const insertMany = db.transaction((files) => {
-        const results = [];
-        for (const file of files) {
-            const info = insert.run(
-                file.originalname,
-                file.filename,
-                file.size,
-                file.mimetype,
-                req.user.username,
-                folderId
-            );
+    try {
+        req.files.forEach((file, index) => {
+            const relPath = relativePaths[index] || file.originalname;
+            const dirPart = path.dirname(relPath) === '.' ? '' : path.dirname(relPath);
+            const targetFolderId = ensureFolderPath(username, dirPart, baseFolderId);
+
+            const fileRelPath = path.join(username, relPath).replace(/\\/g, '/');
+            const targetDiskPath = path.join(uploadsDir, fileRelPath);
+
+            fs.mkdirSync(path.dirname(targetDiskPath), { recursive: true });
+            fs.renameSync(file.path, targetDiskPath);
+
+            const info = db.prepare(`
+                INSERT INTO videos (filename, stored_name, size, mime_type, uploader_username, folder_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `).run(file.originalname, fileRelPath, file.size, file.mimetype, username, targetFolderId);
+
             results.push({
                 id: info.lastInsertRowid,
                 filename: file.originalname,
-                stored_name: file.filename,
+                stored_name: fileRelPath,
                 size: file.size,
                 mime_type: file.mimetype,
-                uploader_username: req.user.username,
-                folder_id: folderId
+                uploader_username: username,
+                folder_id: targetFolderId
             });
-        }
-        return results;
-    });
 
-    try {
-        const results = insertMany(req.files);
-
-        // Добавляем видео в очередь перекодирования
-        req.files.forEach(file => {
             if (file.mimetype.startsWith('video/')) {
                 transcodeQueue.push({
-                    input: path.join(uploadsDir, file.filename),
+                    input: targetDiskPath,
                     filename: file.originalname
                 });
             }
         });
-        processQueue(); // Запускаем очередь, если она стоит
 
+        processQueue();
         res.json({ uploaded: results });
     } catch (err) {
+        console.error('[Upload Error]', err);
         res.status(500).json({ error: 'Storage error' });
     }
 });
@@ -499,7 +624,7 @@ const CHUNK_SIZE_VAL = 50 * 1024 * 1024; // Должно совпадать с �
 
 // Чанковая загрузка (для больших файлов > 100MB)
 app.post('/api/upload/chunk', upload.single('chunk'), async (req, res) => {
-    const { uploadId, chunkIndex, totalChunks, filename, folder_id, mimeType } = req.body;
+    const { uploadId, chunkIndex, totalChunks, filename, folder_id, relativePath, mimeType } = req.body;
 
     if (!req.file) {
         return res.status(400).json({ error: 'No chunk received' });
@@ -511,11 +636,8 @@ app.post('/api/upload/chunk', upload.single('chunk'), async (req, res) => {
     try {
         const chunkIndexNum = parseInt(chunkIndex);
         const startOffset = chunkIndexNum * CHUNK_SIZE_VAL;
-        
-        console.log(`[Upload] Receiving chunk ${chunkIndexNum} for ${uploadId} (offset ${startOffset})`);
 
         if (chunkIndexNum === 0 && fs.existsSync(destPath) && startOffset === 0) {
-            console.log(`[Upload] Truncating existing file for new upload: ${uploadId}`);
             fs.writeFileSync(destPath, ''); 
         }
 
@@ -532,35 +654,39 @@ app.post('/api/upload/chunk', upload.single('chunk'), async (req, res) => {
         fs.unlinkSync(chunkPath);
 
         if (chunkIndexNum === parseInt(totalChunks) - 1) {
-            // Последний чанк получен, финализируем файл
-            const finalFilename = filename;
-            const ext = path.extname(finalFilename);
-            const storedName = nanoid(16) + ext;
-            const finalPath = path.join(uploadsDir, storedName);
+            const username = req.user.username;
+            const relPath = relativePath || filename;
+            const dirPart = path.dirname(relPath) === '.' ? '' : path.dirname(relPath);
+            const baseFolderId = folder_id ? parseInt(folder_id) : null;
+            const targetFolderId = ensureFolderPath(username, dirPart, baseFolderId);
 
-            fs.renameSync(destPath, finalPath);
+            const fileRelPath = path.join(username, relPath).replace(/\\/g, '/');
+            const finalDiskPath = path.join(uploadsDir, fileRelPath);
 
-            const finalStats = fs.statSync(finalPath);
+            fs.mkdirSync(path.dirname(finalDiskPath), { recursive: true });
+            fs.renameSync(destPath, finalDiskPath);
+
+            const finalStats = fs.statSync(finalDiskPath);
 
             const info = db.prepare(`
                 INSERT INTO videos (filename, stored_name, size, mime_type, uploader_username, folder_id)
                 VALUES (?, ?, ?, ?, ?, ?)
-            `).run(finalFilename, storedName, finalStats.size, mimeType, req.user.username, folder_id || null);
+            `).run(filename, fileRelPath, finalStats.size, mimeType, username, targetFolderId);
 
             const result = {
                 id: info.lastInsertRowid,
-                filename: finalFilename,
-                stored_name: storedName,
+                filename: filename,
+                stored_name: fileRelPath,
                 size: finalStats.size,
                 mime_type: mimeType,
-                uploader_username: req.user.username,
-                folder_id: folder_id || null
+                uploader_username: username,
+                folder_id: targetFolderId
             };
 
             if (mimeType.startsWith('video/')) {
                 transcodeQueue.push({
-                    input: finalPath,
-                    filename: finalFilename
+                    input: finalDiskPath,
+                    filename: filename
                 });
                 processQueue();
             }

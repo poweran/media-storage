@@ -57,13 +57,44 @@ function showToast(message, type = 'success') {
 // ============================
 const uploadZone = document.getElementById('uploadZone');
 const fileInput = document.getElementById('fileInput');
+const folderInputSelect = document.getElementById('folderInputSelect');
 const progressContainer = document.getElementById('progressContainer');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 const progressPercent = document.getElementById('progressPercent');
 
+async function getAllFileEntries(dataTransferItems) {
+    const files = [];
+    async function traverseDirectory(item, path = '') {
+        if (item.isFile) {
+            await new Promise((resolve) => {
+                item.file((file) => {
+                    file.relativePath = path + file.name;
+                    if (file.type.startsWith('video/') || file.type.startsWith('image/')) {
+                        files.push(file);
+                    }
+                    resolve();
+                });
+            });
+        } else if (item.isDirectory) {
+            const dirReader = item.createReader();
+            const entries = await new Promise((resolve) => dirReader.readEntries(resolve));
+            for (const entry of entries) {
+                await traverseDirectory(entry, path + item.name + '/');
+            }
+        }
+    }
+
+    for (const item of dataTransferItems) {
+        const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+        if (entry) {
+            await traverseDirectory(entry);
+        }
+    }
+    return files;
+}
+
 if (uploadZone) {
-    // Drag & Drop
     ['dragenter', 'dragover'].forEach(event => {
         uploadZone.addEventListener(event, (e) => {
             e.preventDefault();
@@ -78,15 +109,22 @@ if (uploadZone) {
         });
     });
 
-    uploadZone.addEventListener('drop', (e) => {
-        const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('video/') || f.type.startsWith('image/'));
-        if (files.length > 0) uploadFiles(files);
-        else showToast('Only video and photo files are allowed', 'error');
+    uploadZone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        const items = e.dataTransfer.items;
+        if (items && items.length > 0 && items[0].webkitGetAsEntry) {
+            const files = await getAllFileEntries(items);
+            if (files.length > 0) uploadFiles(files);
+            else showToast('No valid video or image files found', 'error');
+        } else {
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('video/') || f.type.startsWith('image/'));
+            if (files.length > 0) uploadFiles(files);
+            else showToast('Only video and photo files are allowed', 'error');
+        }
     });
 
-    // Клик на зону загрузки тоже открывает выбор файлов
     uploadZone.addEventListener('click', (e) => {
-        if (e.target.tagName !== 'LABEL' && e.target.tagName !== 'INPUT') {
+        if (e.target.tagName !== 'LABEL' && e.target.tagName !== 'INPUT' && !e.target.closest('label')) {
             fileInput.click();
         }
     });
@@ -96,6 +134,19 @@ if (uploadZone) {
             uploadFiles(Array.from(fileInput.files));
         }
     });
+
+    if (folderInputSelect) {
+        folderInputSelect.addEventListener('change', () => {
+            if (folderInputSelect.files.length > 0) {
+                const files = Array.from(folderInputSelect.files).filter(f => f.type.startsWith('video/') || f.type.startsWith('image/'));
+                files.forEach(f => {
+                    if (f.webkitRelativePath) f.relativePath = f.webkitRelativePath;
+                });
+                if (files.length > 0) uploadFiles(files);
+                else showToast('No valid media files in folder', 'error');
+            }
+        });
+    }
 }
 
 // ============================
@@ -263,6 +314,9 @@ function uploadFileNormal(file) {
         if (currentFolderId) {
             formData.append('folder_id', currentFolderId);
         }
+        if (file.relativePath) {
+            formData.append('relative_paths', file.relativePath);
+        }
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/api/upload');
@@ -335,6 +389,9 @@ function uploadFileInChunks(file) {
             formData.append('totalChunks', totalChunks);
             formData.append('filename', file.name);
             formData.append('mimeType', file.type);
+            if (file.relativePath) {
+                formData.append('relativePath', file.relativePath);
+            }
             
             const qItem = uploadQueue.find(q => q.name === file.name && q.size === file.size);
             const folderId = currentFolderId || (qItem ? qItem.folderId : null);

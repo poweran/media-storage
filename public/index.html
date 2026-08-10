@@ -75,15 +75,24 @@
         </div>
         <p class="upload-text">Drag and drop video and photo files here</p>
         <p class="upload-subtext">or</p>
-        <label class="upload-btn" for="fileInput">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="17 8 12 3 7 8" />
-            <line x1="12" y1="3" x2="12" y2="15" />
-          </svg>
-          Select files
-        </label>
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+          <label class="upload-btn" for="fileInput">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Select files
+          </label>
+          <label class="upload-btn" for="folderInputSelect" style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            Select folder
+          </label>
+        </div>
         <input type="file" id="fileInput" multiple accept="video/*,image/*" hidden>
+        <input type="file" id="folderInputSelect" webkitdirectory directory hidden>
         <p class="upload-hint" id="uploadHint">Support for massive files • Up to 50 files at once</p>
       </div>
 
