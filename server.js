@@ -321,6 +321,19 @@ function getFolderPathFromDb(folderId) {
 
 function migrateExistingStorage() {
     try {
+        // Создаем структуры папок пользователей на диске для всех папок из БД
+        const folders = db.prepare('SELECT * FROM folders').all();
+        for (const folder of folders) {
+            const uploader = folder.uploader_username || 'admin';
+            const folderRelPath = getFolderPathFromDb(folder.id);
+            if (folderRelPath) {
+                const folderDiskPath = path.join(uploadsDir, uploader, folderRelPath);
+                if (!fs.existsSync(folderDiskPath)) {
+                    fs.mkdirSync(folderDiskPath, { recursive: true });
+                }
+            }
+        }
+
         const videos = db.prepare('SELECT * FROM videos').all();
         for (const video of videos) {
             const uploader = video.uploader_username || 'admin';
@@ -339,9 +352,17 @@ function migrateExistingStorage() {
                 continue;
             }
 
-            const oldDiskPath = path.join(uploadsDir, video.stored_name);
+            let oldDiskPath = path.join(uploadsDir, video.stored_name);
             if (!fs.existsSync(oldDiskPath)) {
-                continue;
+                const alt1 = path.join(uploadsDir, video.filename);
+                const alt2 = path.join(uploadsDir, path.basename(video.stored_name));
+                if (fs.existsSync(alt1)) {
+                    oldDiskPath = alt1;
+                } else if (fs.existsSync(alt2)) {
+                    oldDiskPath = alt2;
+                } else {
+                    continue;
+                }
             }
 
             let finalStoredName = targetStoredName;
@@ -360,10 +381,10 @@ function migrateExistingStorage() {
             fs.mkdirSync(path.dirname(finalDiskPath), { recursive: true });
             fs.renameSync(oldDiskPath, finalDiskPath);
 
-            const oldExt = path.extname(video.stored_name);
-            const oldBase = oldDiskPath.slice(0, -oldExt.length);
+            const actualOldExt = path.extname(oldDiskPath);
+            const oldBase = actualOldExt ? oldDiskPath.slice(0, -actualOldExt.length) : oldDiskPath;
             const newExt = path.extname(finalDiskPath);
-            const newBase = finalDiskPath.slice(0, -newExt.length);
+            const newBase = newExt ? finalDiskPath.slice(0, -newExt.length) : finalDiskPath;
 
             const qualities = ['1080p', '720p', '480p', '360p'];
             qualities.forEach(q => {
