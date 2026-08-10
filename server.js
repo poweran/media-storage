@@ -70,7 +70,7 @@ function isPublicPath(pathname) {
 }
 
 // Создание папок uploads и temp_uploads
-const storagePath = process.env.STORAGE_PATH ? path.resolve(process.env.STORAGE_PATH) : __dirname;
+const storagePath = process.env.STORAGE_PATH ? path.resolve(process.env.STORAGE_PATH) : '/mnt';
 const uploadsDir = path.join(storagePath, 'uploads');
 const tempDir = path.join(storagePath, 'temp_uploads');
 
