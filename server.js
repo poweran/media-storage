@@ -307,6 +307,83 @@ function syncUserStorage(username) {
     }
 }
 
+function getFolderPathFromDb(folderId) {
+    let currentId = folderId;
+    const parts = [];
+    while (currentId) {
+        const folder = db.prepare('SELECT id, name, parent_id FROM folders WHERE id = ?').get(currentId);
+        if (!folder) break;
+        parts.unshift(folder.name);
+        currentId = folder.parent_id;
+    }
+    return parts.join('/');
+}
+
+function migrateExistingStorage() {
+    try {
+        const videos = db.prepare('SELECT * FROM videos').all();
+        for (const video of videos) {
+            const uploader = video.uploader_username || 'admin';
+
+            if (!video.uploader_username) {
+                db.prepare('UPDATE videos SET uploader_username = ? WHERE id = ?').run('admin', video.id);
+            }
+
+            const folderRelPath = getFolderPathFromDb(video.folder_id);
+            const fileSubPath = folderRelPath
+                ? path.join(uploader, folderRelPath, video.filename)
+                : path.join(uploader, video.filename);
+            const targetStoredName = fileSubPath.replace(/\\/g, '/');
+
+            if (video.stored_name === targetStoredName && fs.existsSync(path.join(uploadsDir, video.stored_name))) {
+                continue;
+            }
+
+            const oldDiskPath = path.join(uploadsDir, video.stored_name);
+            if (!fs.existsSync(oldDiskPath)) {
+                continue;
+            }
+
+            let finalStoredName = targetStoredName;
+            let finalDiskPath = path.join(uploadsDir, finalStoredName);
+
+            if (fs.existsSync(finalDiskPath) && oldDiskPath !== finalDiskPath) {
+                const ext = path.extname(video.filename);
+                const base = path.basename(video.filename, ext);
+                const uniqueName = `${base}_${nanoid(6)}${ext}`;
+                finalStoredName = (folderRelPath
+                    ? path.join(uploader, folderRelPath, uniqueName)
+                    : path.join(uploader, uniqueName)).replace(/\\/g, '/');
+                finalDiskPath = path.join(uploadsDir, finalStoredName);
+            }
+
+            fs.mkdirSync(path.dirname(finalDiskPath), { recursive: true });
+            fs.renameSync(oldDiskPath, finalDiskPath);
+
+            const oldExt = path.extname(video.stored_name);
+            const oldBase = oldDiskPath.slice(0, -oldExt.length);
+            const newExt = path.extname(finalDiskPath);
+            const newBase = finalDiskPath.slice(0, -newExt.length);
+
+            const qualities = ['1080p', '720p', '480p', '360p'];
+            qualities.forEach(q => {
+                const oldQ = `${oldBase}_${q}.mp4`;
+                const newQ = `${newBase}_${q}.mp4`;
+                if (fs.existsSync(oldQ)) {
+                    fs.renameSync(oldQ, newQ);
+                }
+            });
+
+            db.prepare('UPDATE videos SET stored_name = ? WHERE id = ?').run(finalStoredName, video.id);
+            console.log(`[Migration] Moved ${video.stored_name} -> ${finalStoredName}`);
+        }
+    } catch (err) {
+        console.error('[Migration Error]', err);
+    }
+}
+
+migrateExistingStorage();
+
 // Middleware
 app.use(cookieParser());
 app.use(express.json());
