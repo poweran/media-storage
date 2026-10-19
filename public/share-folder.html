@@ -5,10 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Folder — Provideo Media Holding</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/fonts/fonts.css">
+    <link rel="stylesheet" href="/style.css?v=1.3.2">
     <style>
         .breadcrumbs {
             display: flex;
@@ -42,26 +40,8 @@
         }
 
         .share-folder-page .main-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 24px;
             width: 100%;
-        }
-
-        .folder-header {
-            margin-bottom: 32px;
-        }
-
-        .folder-title {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            color: var(--text-primary);
-        }
-
-        .folder-meta {
-            font-size: 14px;
-            color: var(--text-secondary);
+            box-sizing: border-box;
         }
 
         /* Reusing some classes from the main app for videos Grid */
@@ -85,7 +65,7 @@
             border: 1px solid var(--border-color);
             border-radius: 12px;
             overflow: hidden;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
             display: flex;
             flex-direction: column;
         }
@@ -107,6 +87,20 @@
             justify-content: center;
             color: var(--text-tertiary);
             transition: color 0.2s;
+            overflow: hidden;
+        }
+
+        .video-thumb img,
+        .video-thumb video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .video-card:hover .video-thumb img,
+        .video-card:hover .video-thumb video {
+            transform: scale(1.05);
         }
 
         .video-thumb:hover {
@@ -146,6 +140,14 @@
             justify-content: center;
             color: white;
             backdrop-filter: blur(4px);
+            position: absolute;
+            z-index: 10;
+            transition: all 0.2s ease;
+        }
+
+        .video-thumb:hover .play-icon {
+            background: var(--primary-color);
+            transform: scale(1.1);
         }
 
         .video-info {
@@ -171,20 +173,33 @@
         }
 
         .video-actions {
-            padding: 12px 16px;
+            padding: 10px 14px;
             border-top: 1px solid var(--border-color);
             display: flex;
+            align-items: stretch;
+            flex-wrap: wrap;
             gap: 8px;
             background: var(--bg-primary);
+            box-sizing: border-box;
+        }
+
+        .video-actions > .icon-btn,
+        .video-actions > a.icon-btn,
+        .video-actions > button.icon-btn {
+            flex: 1 1 auto;
+            justify-content: center;
+            text-align: center;
+            min-width: 36px;
+            box-sizing: border-box;
         }
 
         .icon-btn {
-            background: transparent;
-            border: none;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             color: var(--text-secondary);
             cursor: pointer;
-            padding: 8px;
-            border-radius: 6px;
+            padding: 8px 12px;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -192,39 +207,143 @@
             text-decoration: none;
             font-family: inherit;
             font-size: 13px;
+            font-weight: 500;
             gap: 6px;
         }
 
         .icon-btn:hover {
             background: var(--bg-tertiary);
             color: var(--text-primary);
+            border-color: rgba(255, 255, 255, 0.15);
         }
 
         .btn-spacer {
-            flex-grow: 1;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .video-card {
+                transform: none !important;
+                transition: none !important;
+            }
+            .video-card:hover {
+                transform: none !important;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+            }
+            .video-thumb img,
+            .folder-thumb {
+                transition: none !important;
+            }
+            .video-card:hover .video-thumb img {
+                transform: none !important;
+            }
+            .play-icon {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
         }
     </style>
 </head>
 
 <body>
     <div class="app share-folder-page">
-        <header class="share-header">
-            <div class="logo">
-                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="23 7 16 12 23 17 23 7" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                </svg>
-                <span class="logo-text" id="logoText">Provideo Media Holding</span>
+        <!-- Header -->
+        <header class="header">
+            <div class="header-inner">
+                <a href="javascript:void(0)" class="logo" id="shareFolderLogoLink" onclick="window.loadTargetFolder(null); return false;">
+                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="23 7 16 12 23 17 23 7" />
+                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                    </svg>
+                    <span class="logo-text" id="logoText">Provideo Media Holding</span>
+                </a>
+                <div class="header-stats" id="headerStats"></div>
+                <div class="header-right">
+                    <div class="user-profile" id="userProfile" style="display: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <span id="usernameDisplay"></span>
+                    </div>
+                    <button class="icon-btn" id="logoutBtn" onclick="logout()" title="Logout" style="display: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>
+                    </button>
+                    <a href="/secure-admin" class="icon-btn" id="loginBtn" title="Login" style="display: none; text-decoration: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                            <polyline points="10 17 15 12 10 7" />
+                            <line x1="15" y1="12" x2="3" y2="12" />
+                        </svg>
+                    </a>
+                </div>
             </div>
         </header>
 
         <main class="main-content">
-            <div class="folder-header">
+            <div class="videos-header">
                 <div class="breadcrumbs" id="breadcrumbs">
                     <span class="crumb active">Loading...</span>
                 </div>
-                <h1 class="folder-title" id="folderTitle">Loading folder...</h1>
-                <div class="folder-meta" id="folderMeta"></div>
+                <div class="sort-controls-wrapper">
+                    <div class="custom-dropdown" id="shareSortDropdown">
+                      <button type="button" class="custom-dropdown-btn" id="shareSortDropdownBtn" onclick="window.toggleShareSortDropdown(event)" aria-haspopup="true" aria-expanded="false" title="Sort by">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="sort-icon">
+                          <line x1="4" y1="6" x2="16" y2="6"/>
+                          <line x1="4" y1="12" x2="11" y2="12"/>
+                          <line x1="4" y1="18" x2="7" y2="18"/>
+                        </svg>
+                        <span class="custom-dropdown-label" id="shareSortDropdownLabel">Date</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" class="sort-arrow">
+                          <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                      </button>
+                      <div class="custom-dropdown-menu" id="shareSortDropdownMenu">
+                        <button type="button" class="custom-dropdown-item active" data-value="date" onclick="window.selectShareSortOption('date')">
+                          <span>Date</span>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" class="check-icon"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                        <button type="button" class="custom-dropdown-item" data-value="name" onclick="window.selectShareSortOption('name')">
+                          <span>Name</span>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" class="check-icon"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                        <button type="button" class="custom-dropdown-item" data-value="size" onclick="window.selectShareSortOption('size')">
+                          <span>Size</span>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" class="check-icon"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                        <button type="button" class="custom-dropdown-item" data-value="type" onclick="window.selectShareSortOption('type')">
+                          <span>Type</span>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" class="check-icon"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                      </div>
+                    </div>
+                    <button id="sortOrderBtn" class="icon-btn" title="Sort Order" onclick="window.toggleShareSortOrder()">
+                        <svg id="sortOrderIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                            <path d="M12 5v14M19 12l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <button id="foldersFirstBtn" class="toggle-chip active" title="Keep folders at top" onclick="window.toggleShareFoldersFirst()" type="button" aria-pressed="true">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" class="folder-chip-icon">
+                            <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+                        </svg>
+                        <span>Folders top</span>
+                        <span class="toggle-switch-track">
+                            <span class="toggle-switch-thumb"></span>
+                        </span>
+                    </button>
+                    <button id="downloadFolderBtn" class="icon-btn" onclick="window.downloadCurrentShareFolder()" title="Download entire folder">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        <span>Download folder</span>
+                    </button>
+                </div>
             </div>
 
             <div id="contentGrid" class="videos-grid" style="display: none;"></div>
@@ -244,26 +363,488 @@
         </main>
     </div>
 
+    <!-- Download Folder Options Modal -->
+    <div class="modal-overlay" id="folderDownloadModal" style="display: none;">
+        <div class="modal" style="max-width: 480px; text-align: left;">
+            <h3 style="margin-bottom: 8px;">Download folder "<span id="dlModalFolderName"></span>"</h3>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 18px; line-height: 1.5;">
+                Choose a download method:
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+                <button class="modal-option-btn primary" id="dlModalZipBtn" onclick="window.confirmShareDownloadZip()">
+                    <div style="font-size: 24px; background: rgba(99, 102, 241, 0.2); width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">📦</div>
+                    <div style="flex-grow: 1;">
+                        <div style="font-weight: 600; font-size: 14px; color: #818cf8; margin-bottom: 2px;">Download as ZIP archive <span style="font-size: 11px; background: #6366f1; color: white; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: normal;">Recommended</span></div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">A single archive with all files. Works everywhere in 1 click without permission requests.</div>
+                    </div>
+                </button>
+
+                <button class="modal-option-btn" id="dlModalDirectBtn" onclick="window.confirmShareDownloadDirect()">
+                    <div style="font-size: 24px; background: rgba(255, 255, 255, 0.05); width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">📁</div>
+                    <div style="flex-grow: 1;">
+                        <div style="font-weight: 600; font-size: 14px; margin-bottom: 2px;">Save directly to folder</div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">For Chrome/Edge on Desktop. <span style="color: #f59e0b;">(Choose a non-system folder)</span></div>
+                    </div>
+                </button>
+            </div>
+
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="modal-btn modal-btn-cancel" onclick="window.closeFolderDownloadModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
     <!-- We load app.js for utility functions like formatSize and escapeHtml -->
-    <script src="/app.js"></script>
+    <script src="/app.js?v=1.4.1"></script>
     <script>
         (function () {
             const pathParts = window.location.pathname.split('/');
             const shareId = pathParts[pathParts.length - 1]; // /s/f/:shareId
             let attentionShown = false;
 
+            if ('scrollRestoration' in window.history) {
+                try {
+                    window.history.scrollRestoration = 'manual';
+                } catch (e) {}
+            }
+
+            const shareScrollMap = new Map();
+            let isShareRestoringScroll = false;
+            let currentLoadShareToken = 0;
+
+            function getShareScrollY() {
+                return window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+            }
+
+            function setShareScrollY(targetY) {
+                const y = Math.max(0, parseInt(targetY, 10) || 0);
+                window.scrollTo({ top: y, left: 0, behavior: 'instant' });
+                document.documentElement.scrollTop = y;
+                document.body.scrollTop = y;
+            }
+
+            function getShareFolderKey(subId) {
+                return `media_scroll_share_${shareId}_${subId !== null && subId !== undefined ? subId : 'root'}`;
+            }
+
+            function saveCurrentShareScroll() {
+                if (isShareRestoringScroll) return;
+                const key = getShareFolderKey(currentTargetSubId);
+                const scrollY = getShareScrollY();
+                shareScrollMap.set(key, scrollY);
+                try {
+                    sessionStorage.setItem(key, String(scrollY));
+                } catch (e) {}
+            }
+
+            function getSavedShareScroll(subId) {
+                const key = getShareFolderKey(subId);
+                if (shareScrollMap.has(key)) {
+                    return shareScrollMap.get(key);
+                }
+                try {
+                    const stored = sessionStorage.getItem(key);
+                    if (stored !== null) {
+                        const parsed = parseInt(stored, 10);
+                        if (!isNaN(parsed)) return parsed;
+                    }
+                } catch (e) {}
+                return null;
+            }
+
+            let shareScrollTimer = null;
+            window.addEventListener('scroll', () => {
+                if (isShareRestoringScroll) return;
+                if (shareScrollTimer) clearTimeout(shareScrollTimer);
+                shareScrollTimer = setTimeout(() => {
+                    if (!isShareRestoringScroll) {
+                        saveCurrentShareScroll();
+                    }
+                }, 60);
+            }, { passive: true });
+
+            window.addEventListener('beforeunload', () => {
+                saveCurrentShareScroll();
+            });
+
             const urlParams = new URLSearchParams(window.location.search);
-            const subfolderId = urlParams.get('subfolder_id');
+            let currentTargetSubId = urlParams.get('subfolder_id');
+
+            let lastFolderData = null;
+            let shareSortKey = localStorage.getItem('share_sort_key') || 'date';
+            let shareSortOrder = localStorage.getItem('share_sort_order') || 'desc';
+            let shareFoldersFirst = localStorage.getItem('share_folders_first') !== 'false';
+
+            const shareSortLabels = {
+                date: 'Date',
+                name: 'Name',
+                size: 'Size',
+                type: 'Type'
+            };
+
+            window.toggleShareSortDropdown = function(e) {
+                if (e) e.stopPropagation();
+                const dropdown = document.getElementById('shareSortDropdown');
+                if (dropdown) dropdown.classList.toggle('open');
+            };
+
+            window.selectShareSortOption = function(key) {
+                window.setShareSortKey(key);
+                const dropdown = document.getElementById('shareSortDropdown');
+                if (dropdown) dropdown.classList.remove('open');
+            };
+
+            document.addEventListener('click', (e) => {
+                const dropdown = document.getElementById('shareSortDropdown');
+                if (dropdown && !dropdown.contains(e.target)) {
+                    dropdown.classList.remove('open');
+                }
+            });
+
+            window.setShareSortKey = function(key) {
+                shareSortKey = key;
+                localStorage.setItem('share_sort_key', key);
+                updateShareSortUI();
+                renderShareContent();
+            };
+
+            window.toggleShareSortOrder = function() {
+                shareSortOrder = shareSortOrder === 'asc' ? 'desc' : 'asc';
+                localStorage.setItem('share_sort_order', shareSortOrder);
+                updateShareSortUI();
+                renderShareContent();
+            };
+
+            window.toggleShareFoldersFirst = function() {
+                shareFoldersFirst = !shareFoldersFirst;
+                localStorage.setItem('share_folders_first', shareFoldersFirst ? 'true' : 'false');
+                updateShareSortUI();
+                renderShareContent();
+            };
+
+            function updateShareSortUI() {
+                const labelEl = document.getElementById('shareSortDropdownLabel');
+                if (labelEl) {
+                    labelEl.textContent = shareSortLabels[shareSortKey] || 'Date';
+                }
+                const items = document.querySelectorAll('#shareSortDropdownMenu .custom-dropdown-item');
+                items.forEach(item => {
+                    if (item.dataset.value === shareSortKey) {
+                        item.classList.add('active');
+                    } else {
+                        item.classList.remove('active');
+                    }
+                });
+
+                const orderIcon = document.getElementById('sortOrderIcon');
+                const orderBtn = document.getElementById('sortOrderBtn');
+                if (orderIcon && orderBtn) {
+                    if (shareSortOrder === 'asc') {
+                        orderIcon.innerHTML = '<path d="M12 19V5M5 12l7-7 7 7"/>';
+                        orderBtn.title = 'Sort order: Ascending';
+                    } else {
+                        orderIcon.innerHTML = '<path d="M12 5v14M19 12l-7 7-7-7"/>';
+                        orderBtn.title = 'Sort order: Descending';
+                    }
+                }
+                const foldersFirstBtn = document.getElementById('foldersFirstBtn');
+                if (foldersFirstBtn) {
+                    if (shareFoldersFirst) {
+                        foldersFirstBtn.classList.add('active');
+                        foldersFirstBtn.setAttribute('aria-pressed', 'true');
+                    } else {
+                        foldersFirstBtn.classList.remove('active');
+                        foldersFirstBtn.setAttribute('aria-pressed', 'false');
+                    }
+                }
+            }
 
             const contentGrid = document.getElementById('contentGrid');
             const emptyState = document.getElementById('emptyState');
             const errorState = document.getElementById('errorState');
             const errorText = document.getElementById('errorText');
             const breadcrumbsEl = document.getElementById('breadcrumbs');
-            const folderTitleEl = document.getElementById('folderTitle');
-            const folderMetaEl = document.getElementById('folderMeta');
 
-            function loadFolder(targetSubId = null) {
+            function naturalCompare(a, b) {
+                if (a === b) return 0;
+                const strA = String(a || '');
+                const strB = String(b || '');
+                const res = strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' });
+                if (res !== 0) return res;
+                return strA.localeCompare(strB, undefined, { numeric: true });
+            }
+
+            function compareMediaItems(a, b, isAFolder, isBFolder) {
+                const multiplier = shareSortOrder === 'asc' ? 1 : -1;
+                const nameA = a.name || a.filename || '';
+                const nameB = b.name || b.filename || '';
+
+                if (shareSortKey === 'name') {
+                    return naturalCompare(nameA, nameB) * multiplier;
+                } else if (shareSortKey === 'size') {
+                    const sizeA = a.size || 0;
+                    const sizeB = b.size || 0;
+                    const diff = (sizeA - sizeB) * multiplier;
+                    if (diff !== 0) return diff;
+                    return naturalCompare(nameA, nameB) * multiplier;
+                } else if (shareSortKey === 'type') {
+                    const typeA = isAFolder ? 'folder' : (a.mime_type || (a.filename ? a.filename.split('.').pop() : ''));
+                    const typeB = isBFolder ? 'folder' : (b.mime_type || (b.filename ? b.filename.split('.').pop() : ''));
+                    const diff = naturalCompare(typeA, typeB) * multiplier;
+                    if (diff !== 0) return diff;
+                    return naturalCompare(nameA, nameB) * multiplier;
+                } else {
+                    const dateA = new Date(a.created_at || 0).getTime();
+                    const dateB = new Date(b.created_at || 0).getTime();
+                    const diff = (dateA - dateB) * multiplier;
+                    if (diff !== 0) return diff;
+                    return naturalCompare(nameA, nameB) * multiplier;
+                }
+            }
+
+            function renderShareContent() {
+                if (!lastFolderData) return;
+                const { subfolders, videos } = lastFolderData;
+
+                const renderSubfolderCard = (sub) => `
+                  <div class="video-card folder-card">
+                    <a href="/s/f/${shareId}?subfolder_id=${sub.id}" class="folder-thumb" style="text-decoration: none;" onclick="event.preventDefault(); window.loadTargetFolder(${sub.id});">
+                      <svg class="folder-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+                      </svg>
+                    </a>
+                    <div class="video-info">
+                      <div class="video-name" title="${escapeHtml(sub.name)}">${escapeHtml(sub.name)}</div>
+                      <div class="video-meta">
+                        <span>${sub.file_count || 0} ${sub.file_count === 1 ? 'file' : 'files'}</span>
+                        <span>${formatSize(sub.total_size || 0)}</span>
+                        <span>${new Date(sub.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <div class="video-actions">
+                      <a href="/s/f/${shareId}?subfolder_id=${sub.id}" class="icon-btn" style="flex: 2 1 auto; justify-content: center;" onclick="event.preventDefault(); window.loadTargetFolder(${sub.id});">
+                        Open
+                      </a>
+                      <button class="icon-btn" title="Download folder" onclick="event.stopPropagation(); window.openFolderDownloadModal(${sub.id}, '${escapeJs(sub.name)}')" style="flex: 1 1 auto; justify-content: center;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7 10 12 15 17 10" />
+                          <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                `;
+
+                const renderVideoCard = (vid) => {
+                    const link = `/s/f/${shareId}/v/${vid.id}`;
+                    const isImage = vid.mime_type && vid.mime_type.startsWith('image/');
+                    const streamUrl = `/api/share/folder/${shareId}/video/${vid.id}/stream`;
+                    const thumbUrl = `/api/share/folder/${shareId}/video/${vid.id}/thumbnail`;
+
+                    const mediaTag = isImage
+                        ? `<img src="${thumbUrl}" alt="${escapeHtml(vid.filename)}" loading="lazy" decoding="async" onerror="this.onerror=null; this.src='${streamUrl}';">`
+                        : `<img src="${thumbUrl}" alt="${escapeHtml(vid.filename)}" loading="lazy" decoding="async" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div class="video-placeholder-fallback" style="display:none; width:100%; height:100%; align-items:center; justify-content:center; background:var(--bg-tertiary); color:var(--text-secondary);"><svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' width='36' height='36'><polygon points='23 7 16 12 23 17 23 7'></polygon><rect x='1' y='5' width='15' height='14' rx='2' ry='2'></rect></svg></div>`;
+
+                    return `
+                      <div class="video-card">
+                        <a href="${link}" class="video-thumb" style="text-decoration: none;" onclick="saveCurrentShareScroll(); try { sessionStorage.setItem('last_share_url', window.location.href); } catch(e) {}">
+                          ${mediaTag}
+                          <div class="play-icon">
+                            ${isImage ?
+                            `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                 <circle cx="8.5" cy="8.5" r="1.5" />
+                                 <polyline points="21 15 16 10 5 21" />
+                               </svg>`
+                            : `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                                 <polygon points="5 3 19 12 5 21 5 3"/>
+                               </svg>`
+                        }
+                          </div>
+                        </a>
+                        <div class="video-info">
+                          <div class="video-name" title="${escapeHtml(vid.filename)}">${escapeHtml(vid.filename)}</div>
+                          <div class="video-meta">
+                            <span>${formatSize(vid.size)}</span>
+                            <span>${new Date(vid.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <div class="video-actions">
+                          <a href="${link}" class="icon-btn" style="flex: 2 1 auto; justify-content: center;" onclick="saveCurrentShareScroll(); try { sessionStorage.setItem('last_share_url', window.location.href); } catch(e) {}">
+                            ${isImage ? 'View Photo' : 'Watch Video'}
+                          </a>
+                          <a href="/api/share/folder/${shareId}/video/${vid.id}/stream?download=1" class="icon-btn" title="Download" download="${escapeHtml(vid.filename)}" style="flex: 1 1 auto; justify-content: center;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                              <polyline points="7 10 12 15 17 10" />
+                              <line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                          </a>
+                        </div>
+                      </div>
+                    `;
+                };
+
+                let html = '';
+                const sortedSubs = [...subfolders];
+                const sortedVids = [...videos];
+
+                if (shareFoldersFirst) {
+                    sortedSubs.sort((a, b) => compareMediaItems(a, b, true, true));
+                    sortedVids.sort((a, b) => compareMediaItems(a, b, false, false));
+                    html = sortedSubs.map(renderSubfolderCard).join('') + sortedVids.map(renderVideoCard).join('');
+                } else {
+                    const allItems = [
+                        ...sortedSubs.map(s => ({ ...s, _isFolder: true })),
+                        ...sortedVids.map(v => ({ ...v, _isFolder: false }))
+                    ];
+                    allItems.sort((a, b) => compareMediaItems(a, b, a._isFolder, b._isFolder));
+                    html = allItems.map(item => item._isFolder ? renderSubfolderCard(item) : renderVideoCard(item)).join('');
+                }
+
+                contentGrid.innerHTML = html;
+            }
+
+            const shareDataCache = new Map();
+
+            function loadFolder(targetSubId = null, pushState = true, targetScrollY = null) {
+                saveCurrentShareScroll();
+                const thisToken = ++currentLoadShareToken;
+                isShareRestoringScroll = true;
+
+                currentTargetSubId = targetSubId;
+
+                const saved = getSavedShareScroll(targetSubId);
+                const desiredScrollY = targetScrollY !== null ? targetScrollY : (saved !== null ? saved : 0);
+
+                const cacheKey = `share_${shareId}_${targetSubId || 'root'}`;
+
+                function renderShareData(data) {
+                    errorState.style.display = 'none';
+                    lastFolderData = data;
+                    const { folder, subfolders, videos, breadcrumbs, share_expires_at } = data;
+
+                    // Хлебные крошки
+                    let bcHtml = '';
+                    breadcrumbs.forEach((bc, idx) => {
+                        const isActive = idx === breadcrumbs.length - 1;
+                        if (isActive) {
+                            bcHtml += `<span class="crumb active">${escapeHtml(bc.name)}</span>`;
+                        } else {
+                            const q = idx === 0 ? '' : `?subfolder_id=${bc.id}`;
+                            bcHtml += `<a href="/s/f/${shareId}${q}" class="crumb" style="text-decoration:none;" onclick="event.preventDefault(); window.loadTargetFolder(${idx === 0 ? 'null' : bc.id});">${escapeHtml(bc.name)}</a>`;
+                        }
+                    });
+                    breadcrumbsEl.innerHTML = bcHtml;
+
+                    // Обновляем URL без перезагрузки страницы (History API)
+                    const newUrl = targetSubId ? `/s/f/${shareId}?subfolder_id=${targetSubId}` : `/s/f/${shareId}`;
+                    if (pushState) {
+                        window.history.pushState({ subId: targetSubId }, '', newUrl);
+                    } else {
+                        window.history.replaceState({ subId: targetSubId }, '', newUrl);
+                    }
+
+                    if (subfolders.length === 0 && videos.length === 0) {
+                        contentGrid.style.display = 'none';
+                        emptyState.style.display = 'block';
+                        setShareScrollY(0);
+                        return;
+                    }
+
+                    // Рендерим сетку
+                    contentGrid.style.display = 'grid';
+                    emptyState.style.display = 'none';
+
+                    updateShareSortUI();
+                    renderShareContent();
+                    setShareScrollY(desiredScrollY);
+
+                    // Title документа
+                    const siteTitle = window.siteTitle || 'Provideo Media Holding';
+                    document.title = `${folder.name} — ${siteTitle}`;
+                    document.getElementById('logoText').textContent = siteTitle;
+
+                    const isAttentionHidden = localStorage.getItem('dont_show_attention_' + shareId) === 'true';
+
+                    if (!attentionShown && share_expires_at && !isAttentionHidden) {
+                        attentionShown = true;
+                        const popup = document.createElement('div');
+                        popup.innerHTML = `
+                            <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 16px; box-sizing: border-box; backdrop-filter: blur(4px);">
+                                <div style="background: var(--bg-secondary, #1e1e24); border: 1px solid var(--border, #333); border-radius: 14px; max-width: 560px; width: 100%; max-height: calc(100dvh - 32px); max-height: calc(100vh - 32px); display: flex; flex-direction: column; box-shadow: 0 12px 36px rgba(0,0,0,0.6); overflow: hidden; box-sizing: border-box;">
+                                    <div style="padding: 22px 18px 14px; overflow-y: auto; text-align: center; -webkit-overflow-scrolling: touch; flex: 1 1 auto;">
+                                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(99, 102, 241, 0.15); color: #818cf8; margin-bottom: 12px;">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                        </div>
+                                        <h2 style="margin-top: 0; margin-bottom: 12px; font-size: 17px; font-weight: 700; color: var(--text-primary, #fff); line-height: 1.3;">ՈՒՇԱԴՐՈՒԹՅՈՒՆ / ATTENTION</h2>
+                                        <div style="font-size: 13.5px; line-height: 1.6; margin-bottom: 8px; color: var(--text-secondary, #aaa); text-align: left; background: rgba(255,255,255,0.03); padding: 14px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                                            <p style="margin: 0 0 10px 0;">
+                                                Խնդրում ենք Ձեր ֆայլերը ներբեռնել մինչև <strong style="color: var(--text-primary, #fff);">${new Date(share_expires_at).toLocaleDateString('hy-AM')}</strong>, քանի որ նշված ժամկետի ավարտից հետո հղումը այլևս հասանելի չի լինի։<br>Կրկին շնորհակալություն համագործակցության համար։
+                                            </p>
+                                            <div style="border-top: 1px solid rgba(255,255,255,0.08); margin: 10px 0;"></div>
+                                            <p style="margin: 0;">
+                                                Please download your files before <strong style="color: var(--text-primary, #fff);">${new Date(share_expires_at).toLocaleDateString('en-US')}</strong>, as the link will no longer be available after this period.<br>Thank you again for your cooperation.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div style="padding: 12px 18px 18px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; align-items: center; gap: 12px; flex-shrink: 0; background: var(--bg-secondary, #1e1e24);">
+                                        <label style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: var(--text-secondary, #aaa); cursor: pointer; user-select: none;">
+                                            <input type="checkbox" id="dontShowAgainCheck" style="width: 16px; height: 16px; cursor: pointer; accent-color: #646cff;">
+                                            <span>Այլևս ցույց չտալ / Don't show again</span>
+                                        </label>
+                                        <button id="attentionOkBtn" style="min-width: 160px; width: 100%; max-width: 240px; padding: 12px 24px; font-size: 15px; font-weight: 600; border-radius: 8px; border: none; background: #646cff; color: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#535bf2'" onmouseout="this.style.background='#646cff'">OK</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+
+                        const okBtn = popup.querySelector('#attentionOkBtn');
+                        const closePopup = () => {
+                            const chk = popup.querySelector('#dontShowAgainCheck');
+                            if (chk && chk.checked) {
+                                try {
+                                    localStorage.setItem('dont_show_attention_' + shareId, 'true');
+                                } catch (e) {}
+                            }
+                            popup.remove();
+                        };
+                        if (okBtn) okBtn.addEventListener('click', closePopup);
+                        popup.addEventListener('click', (e) => {
+                            if (e.target === popup.firstElementChild) {
+                                closePopup();
+                            }
+                        });
+                        document.body.appendChild(popup);
+                    }
+                }
+
+                // 1. Мгновенный рендер из кэша (0ms задержки и 0 прыжков скролла)
+                const cached = shareDataCache.get(cacheKey);
+                if (cached) {
+                    renderShareData(cached);
+                    setTimeout(() => {
+                        if (thisToken === currentLoadShareToken) {
+                            isShareRestoringScroll = false;
+                        }
+                    }, 50);
+                } else {
+                    contentGrid.innerHTML = `
+                        <div style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; color: var(--text-secondary);">
+                            <div class="nav-spinner active" style="width: 32px; height: 32px; border-width: 3px; margin: 0 0 16px 0;"></div>
+                            <div style="font-size: 14px; font-weight: 500;">Loading folder...</div>
+                        </div>
+                    `;
+                    emptyState.style.display = 'none';
+                    contentGrid.style.display = 'grid';
+                }
+
+                if (typeof showNavLoader === 'function') showNavLoader();
+
                 let url = '/api/share/folder/' + shareId;
                 if (targetSubId) {
                     url += '?subfolder_id=' + targetSubId;
@@ -277,164 +858,376 @@
                         return r.json();
                     })
                     .then(data => {
-                        errorState.style.display = 'none';
-                        const { folder, subfolders, videos, breadcrumbs, share_expires_at } = data;
-
-                        // Заголовок
-                        folderTitleEl.textContent = folder.name;
-                        const totalItems = subfolders.length + videos.length;
-                        folderMetaEl.textContent = totalItems + ' items';
-
-                        // Хлебные крошки
-                        let bcHtml = '';
-                        breadcrumbs.forEach((bc, idx) => {
-                            const isActive = idx === breadcrumbs.length - 1;
-                            if (isActive) {
-                                bcHtml += `<span class="crumb active">${escapeHtml(bc.name)}</span>`;
-                            } else {
-                                const q = idx === 0 ? '' : `?subfolder_id=${bc.id}`;
-                                bcHtml += `<a href="/s/f/${shareId}${q}" class="crumb" style="text-decoration:none;">${escapeHtml(bc.name)}</a>`;
-                            }
-                        });
-                        breadcrumbsEl.innerHTML = bcHtml;
-
-                        // Обновляем URL без перезагрузки страницы (History API)
-                        const newUrl = targetSubId ? `/s/f/${shareId}?subfolder_id=${targetSubId}` : `/s/f/${shareId}`;
-                        window.history.pushState({ subId: targetSubId }, '', newUrl);
-
-                        if (totalItems === 0) {
-                            contentGrid.style.display = 'none';
-                            emptyState.style.display = 'block';
+                        if (thisToken !== currentLoadShareToken) {
+                            if (typeof hideNavLoader === 'function') hideNavLoader();
                             return;
                         }
-
-                        // Рендерим сетку
-                        contentGrid.style.display = 'grid';
-                        emptyState.style.display = 'none';
-
-                        let html = '';
-
-                        // Подпапки
-                        html += subfolders.map(sub => `
-                          <div class="video-card folder-card">
-                            <a href="/s/f/${shareId}?subfolder_id=${sub.id}" class="folder-thumb" style="text-decoration: none;" onclick="event.preventDefault(); window.loadTargetFolder(${sub.id});">
-                              <svg class="folder-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
-                              </svg>
-                            </a>
-                            <div class="video-info">
-                              <div class="video-name" title="${escapeHtml(sub.name)}">${escapeHtml(sub.name)}</div>
-                              <div class="video-meta">
-                                <span>Folder</span>
-                                <span>${new Date(sub.created_at).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                            <div class="video-actions">
-                              <a href="/s/f/${shareId}?subfolder_id=${sub.id}" class="icon-btn" style="flex-grow: 1; justify-content: center;" onclick="event.preventDefault(); window.loadTargetFolder(${sub.id});">
-                                Open
-                              </a>
-                            </div>
-                          </div>
-                        `).join('');
-
-                        // Видео
-                        html += videos.map(vid => {
-                            const link = `/s/f/${shareId}/v/${vid.id}`;
-                            const isImage = vid.mime_type && vid.mime_type.startsWith('image/');
-                            return `
-                              <div class="video-card">
-                                <a href="${link}" class="video-thumb" style="text-decoration: none;">
-                                  <div class="play-icon">
-                                    ${isImage ?
-                                    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                                         <circle cx="8.5" cy="8.5" r="1.5" />
-                                         <polyline points="21 15 16 10 5 21" />
-                                       </svg>`
-                                    : `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                                         <polygon points="5 3 19 12 5 21 5 3"/>
-                                       </svg>`
-                                }
-                                  </div>
-                                </a>
-                                <div class="video-info">
-                                  <div class="video-name" title="${escapeHtml(vid.filename)}">${escapeHtml(vid.filename)}</div>
-                                  <div class="video-meta">
-                                    <span>${formatSize(vid.size)}</span>
-                                    <span>${new Date(vid.created_at).toLocaleDateString()}</span>
-                                  </div>
-                                </div>
-                                <div class="video-actions">
-                                  <a href="${link}" class="icon-btn" style="flex-grow: 1; justify-content: center;">
-                                    ${isImage ? 'View Photo' : 'Watch Video'}
-                                  </a>
-                                  <a href="/api/share/folder/${shareId}/video/${vid.id}/stream" class="icon-btn" title="Download" download="${escapeHtml(vid.filename)}">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                      <polyline points="7 10 12 15 17 10" />
-                                      <line x1="12" y1="15" x2="12" y2="3" />
-                                    </svg>
-                                  </a>
-                                </div>
-                              </div>
-                            `;
-                        }).join('');
-
-                        contentGrid.innerHTML = html;
-
-                        // Title документа
-                        const siteTitle = window.siteTitle || 'Provideo Media Holding';
-                        document.title = `${folder.name} — ${siteTitle}`;
-                        document.getElementById('logoText').textContent = siteTitle;
-
-                        if (!attentionShown && share_expires_at) {
-                            attentionShown = true;
-                            const popup = document.createElement('div');
-                            popup.innerHTML = `
-                                <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
-                                    <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; max-width: 600px; width: 100%; padding: 32px; text-align: center; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                                        <h2 style="margin-top: 0; margin-bottom: 16px; color: var(--text-primary);">ՈՒՇԱԴՐՈՒԹՅՈՒՆ / ATTENTION</h2>
-                                        <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px; color: var(--text-secondary);">
-                                        Խնդրում ենք Ձեր ֆայլերը ներբեռնել մինչև <strong>${new Date(share_expires_at).toLocaleDateString('hy-AM')}</strong>, քանի որ նշված ժամկետի ավարտից հետո հղումը այլևս հասանելի չի լինի։<br>Կրկին շնորհակալություն համագործակցության համար։<br><br>
-                                        Please download your files before <strong>${new Date(share_expires_at).toLocaleDateString('en-US')}</strong>, as the link will no longer be available after this period.<br>Thank you again for your cooperation.
-                                        </p>
-                                        <button onclick="this.parentElement.parentElement.remove()" style="padding: 12px 32px; font-size: 16px; font-weight: 600; border-radius: 8px; border: none; background: #646cff; color: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#535bf2'" onmouseout="this.style.background='#646cff'">OK</button>
-                                    </div>
-                                </div>
-                            `;
-                            document.body.appendChild(popup);
-                        }
+                        shareDataCache.set(cacheKey, data);
+                        renderShareData(data);
+                        if (typeof hideNavLoader === 'function') hideNavLoader();
+                        setTimeout(() => {
+                            if (thisToken === currentLoadShareToken) {
+                                isShareRestoringScroll = false;
+                            }
+                        }, 50);
                     })
-                    .catch(e => {
+                    .catch(err => {
+                        console.error('Share folder load error:', err);
+                        if (typeof hideNavLoader === 'function') hideNavLoader();
+                        isShareRestoringScroll = false;
                         contentGrid.style.display = 'none';
                         emptyState.style.display = 'none';
                         errorState.style.display = 'block';
-                        folderTitleEl.textContent = 'Error';
-                        folderMetaEl.textContent = '';
                         breadcrumbsEl.innerHTML = '';
 
-                        if (e.message === 'Link expired') {
+                        if (err.message === 'Link expired') {
+                            errorState.style.padding = '0';
+                            errorState.style.border = 'none';
+                            errorState.style.background = 'transparent';
                             errorState.innerHTML = `
-                            <div style="text-align: left; margin: 0 auto; max-width: 800px;">
-                                <p style="font-size: 16px; line-height: 1.6; color: var(--text-primary);">
-                                    Հարգելի այցելու,<br><br>
-                                    Տեղեկացնում ենք, որ տվյալ հղման գործողության նախատեսված ժամկետն ավարտվել է և այն ներկայումս հասանելի չէ։<br>
-                                    Եթե դեռևս չեք հասցրել ներբեռնել Ձեր ֆայլերը, խնդրում ենք նկատի ունենալ, որ հղման ժամկետի ավարտից հետո 15 օրվա ընթացքում կարող եք ներբեռնել դրանք։<br>
-                                    Ուստի խնդրում ենք կապ հաստատել մեզ հետ։<br><br>
-                                    Հարգանքներով՝<br>
-                                    PROVIDEO MEDIA HOLDING<br><br>
-                                    Dear Visitor,<br><br>
-                                    We would like to inform you that the provided link has expired and is currently unavailable.<br>
-                                    If you have not yet managed to download your files, please note that they remain available for download for 15 days following the link's expiration.<br>
-                                    Therefore, we kindly ask you to contact us.<br><br>
-                                    Sincerely,<br>
-                                    PROVIDEO MEDIA HOLDING
-                                </p>
+                            <div style="text-align: left; margin: 0 auto; max-width: 650px; padding: 16px 12px;">
+                                <div style="background: var(--bg-secondary, #1e1e24); border: 1px solid var(--border, #333); border-radius: 14px; padding: 24px 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                        <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: center; color: var(--danger, #ef4444); flex-shrink: 0;">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary, #fff);">Հղման ժամկետն ավարտվել է / Link Expired</h3>
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 14px; line-height: 1.6; color: var(--text-secondary, #aaa);">
+                                        <p style="margin: 0 0 12px 0;">
+                                            Հարգելի այցելու,<br><br>
+                                            Տեղեկացնում ենք, որ տվյալ հղման գործողության նախատեսված ժամկետն ավարտվել է և այն ներկայումս հասանելի չէ։<br>
+                                            Եթե դեռևս չեք հասցրել ներբեռնել Ձեր ֆայլերը, խնդրում ենք նկատի ունենալ, որ հղման ժամկետի ավարտից հետո 15 օրվա ընթացքում կարող եք ներբեռնել դրանք։<br>
+                                            Ուստի խնդրում ենք կապ հաստատել մեզ հետ։<br><br>
+                                            <span style="color: var(--text-primary, #fff); font-weight: 600;">Հարգանքներով՝<br>PROVIDEO MEDIA HOLDING</span>
+                                        </p>
+                                        <div style="border-top: 1px solid rgba(255,255,255,0.08); margin: 16px 0;"></div>
+                                        <p style="margin: 0;">
+                                            Dear Visitor,<br><br>
+                                            We would like to inform you that the provided link has expired and is currently unavailable.<br>
+                                            If you have not yet managed to download your files, please note that they remain available for download for 15 days following the link's expiration.<br>
+                                            Therefore, we kindly ask you to contact us.<br><br>
+                                            <span style="color: var(--text-primary, #fff); font-weight: 600;">Sincerely,<br>PROVIDEO MEDIA HOLDING</span>
+                                        </p>
+                                    </div>
+                                    <div style="margin-top: 22px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: center;">
+                                        <button onclick="if (window.history.length > 1 && document.referrer) { window.history.back(); } else { window.location.href = '/'; }" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; max-width: 240px; padding: 12px 24px; font-size: 15px; font-weight: 600; border-radius: 8px; border: none; background: #646cff; color: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#535bf2'" onmouseout="this.style.background='#646cff'">
+                                            Փակել / OK
+                                        </button>
+                                    </div>
+                                </div>
                             </div>`;
                         } else {
-                            errorState.innerHTML = `<h3 style="margin-bottom: 8px; color: var(--danger);">Error</h3><p id="errorText">${escapeHtml(e.message)}</p>`;
+                            errorState.innerHTML = `
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="color: var(--danger, #ef4444); margin-bottom: 12px;">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                </svg>
+                                <h3 style="margin-bottom: 8px; color: var(--text-primary);">Failed to load folder</h3>
+                                <p id="errorText" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">${escapeHtml(err.message || 'Network error')}</p>
+                                <button class="grid-error-btn" onclick="window.loadTargetFolder(${targetSubId ? targetSubId : 'null'})">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                        <path d="M23 4v6h-6M1 20v-6h6"></path>
+                                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                    </svg>
+                                    Retry
+                                </button>
+                            `;
                         }
                     });
+            }
+
+            function escapeJs(str) {
+                if (!str) return '';
+                return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+            }
+
+            function showFolderDownloadProgress(folderName) {
+                let cancelled = false;
+                const container = document.createElement('div');
+                container.className = 'folder-download-modal';
+                container.style.cssText = `
+                    position: fixed;
+                    bottom: 24px;
+                    right: 24px;
+                    z-index: 10000;
+                    background: var(--bg-secondary, #1e1e24);
+                    border: 1px solid var(--border, #333);
+                    border-radius: 12px;
+                    padding: 16px 20px;
+                    width: 360px;
+                    max-width: calc(100vw - 48px);
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                    color: var(--text-primary, #fff);
+                    font-family: inherit;
+                    backdrop-filter: blur(10px);
+                    transition: all 0.3s ease;
+                `;
+
+                container.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px;">
+                            📁 ${escapeHtml(folderName)}
+                        </div>
+                        <button id="folderDlCancelBtn" style="background: none; border: none; color: var(--text-secondary, #888); cursor: pointer; font-size: 18px; line-height: 1; padding: 0 4px;" title="Cancel">&times;</button>
+                    </div>
+                    <div id="folderDlText" style="font-size: 12px; color: var(--text-secondary, #aaa); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        Preparing download...
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 6px; overflow: hidden; margin-bottom: 6px;">
+                        <div id="folderDlFill" style="background: var(--primary, #6366f1); height: 100%; width: 0%; transition: width 0.2s;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary, #888);">
+                        <span id="folderDlSubtext">0 MB</span>
+                        <span id="folderDlPercent">0%</span>
+                    </div>
+                `;
+
+                document.body.appendChild(container);
+
+                const cancelBtn = container.querySelector('#folderDlCancelBtn');
+                const textEl = container.querySelector('#folderDlText');
+                const fillEl = container.querySelector('#folderDlFill');
+                const subtextEl = container.querySelector('#folderDlSubtext');
+                const percentEl = container.querySelector('#folderDlPercent');
+
+                cancelBtn.addEventListener('click', () => {
+                    cancelled = true;
+                    textEl.textContent = 'Cancelling download...';
+                });
+
+                return {
+                    isCancelled: () => cancelled,
+                    update: ({ text, subtext, progress, done, error }) => {
+                        if (text) textEl.textContent = text;
+                        if (subtext) subtextEl.textContent = subtext;
+                        if (progress !== undefined) {
+                            fillEl.style.width = progress + '%';
+                            percentEl.textContent = progress + '%';
+                        }
+                        if (done) {
+                            fillEl.style.background = '#10b981';
+                            cancelBtn.style.display = 'none';
+                        }
+                        if (error) {
+                            fillEl.style.background = '#ef4444';
+                            textEl.style.color = '#ef4444';
+                            cancelBtn.style.display = 'none';
+                        }
+                    },
+                    close: () => {
+                        container.style.opacity = '0';
+                        container.style.transform = 'translateY(10px)';
+                        setTimeout(() => container.remove(), 300);
+                    }
+                };
+            }
+
+            let currentShareDlInfo = null;
+
+            window.openFolderDownloadModal = function(folderId, folderName) {
+                currentShareDlInfo = { folderId, folderName };
+                const modal = document.getElementById('folderDownloadModal');
+                const nameEl = document.getElementById('dlModalFolderName');
+                if (nameEl) nameEl.textContent = folderName || 'Folder';
+                if (modal) modal.style.display = 'flex';
+            };
+
+            window.closeFolderDownloadModal = function() {
+                const modal = document.getElementById('folderDownloadModal');
+                if (modal) modal.style.display = 'none';
+                currentShareDlInfo = null;
+            };
+
+            window.confirmShareDownloadZip = function() {
+                if (!currentShareDlInfo) return;
+                const { folderId, folderName } = currentShareDlInfo;
+                window.closeFolderDownloadModal();
+                window.downloadFolderZip(folderId, folderName);
+            };
+
+            window.confirmShareDownloadDirect = function() {
+                if (!currentShareDlInfo) return;
+                const { folderId, folderName } = currentShareDlInfo;
+                window.closeFolderDownloadModal();
+                window.startDirectFolderDownload(folderId, folderName);
+            };
+
+            window.downloadFolderZip = function(folderId, folderName, shId = shareId) {
+                const zipUrl = `/api/share/folder/${shId}/zip${folderId ? `?subfolder_id=${folderId}` : ''}`;
+                const a = document.createElement('a');
+                a.href = zipUrl;
+                a.download = `${folderName || 'folder'}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => a.remove(), 1000);
+            };
+
+            window.startDirectFolderDownload = async function(folderId, folderName, shId = shareId) {
+                if (!window.showDirectoryPicker) {
+                    alert('Direct folder saving is supported on Desktop in Chrome, Edge, and Opera. Starting ZIP archive download...');
+                    window.downloadFolderZip(folderId, folderName, shId);
+                    return;
+                }
+
+                let destDirHandle;
+                try {
+                    destDirHandle = await window.showDirectoryPicker({
+                        mode: 'readwrite',
+                        startIn: 'downloads'
+                    });
+                } catch (e) {
+                    if (e.name === 'AbortError') {
+                        alert('Folder selection was cancelled or blocked by the browser for security reasons (e.g. system folder or disk root).\n\nYou can use the "Download as ZIP archive" option.');
+                        return;
+                    }
+                    console.warn('[DirectoryPicker error, falling back to ZIP]', e);
+                    window.downloadFolderZip(folderId, folderName, shId);
+                    return;
+                }
+
+                const progressEl = showFolderDownloadProgress(folderName);
+
+                try {
+                    let url = `/api/share/folder/${shId}/tree${folderId ? `?subfolder_id=${folderId}` : ''}`;
+                    const res = await fetch(url);
+                    if (!res.ok) {
+                        const errData = await res.json().catch(() => ({}));
+                        throw new Error(errData.error || 'Failed to load folder tree');
+                    }
+
+                    const data = await res.json();
+                    const { folder, files } = data;
+                    const targetFolderName = (folder && folder.name) ? folder.name : folderName;
+
+                    if (!files || files.length === 0) {
+                        progressEl.update({ text: 'Folder is empty', progress: 100, done: true });
+                        setTimeout(() => progressEl.close(), 2500);
+                        return;
+                    }
+
+                    const rootFolderHandle = await destDirHandle.getDirectoryHandle(targetFolderName, { create: true });
+                    const dirCache = new Map();
+                    dirCache.set('', rootFolderHandle);
+
+                    async function getOrCreateSubDirHandle(relDir) {
+                        if (!relDir || relDir === '.') return rootFolderHandle;
+                        if (dirCache.has(relDir)) return dirCache.get(relDir);
+
+                        const parts = relDir.split('/').filter(Boolean);
+                        let cur = rootFolderHandle;
+                        let curPath = '';
+                        for (const part of parts) {
+                            curPath = curPath ? `${curPath}/${part}` : part;
+                            if (dirCache.has(curPath)) {
+                                cur = dirCache.get(curPath);
+                            } else {
+                                cur = await cur.getDirectoryHandle(part, { create: true });
+                                dirCache.set(curPath, cur);
+                            }
+                        }
+                        return cur;
+                    }
+
+                    const totalFiles = files.length;
+                    let downloadedCount = 0;
+                    let totalBytes = files.reduce((sum, f) => sum + (f.size || 0), 0);
+                    let downloadedBytes = 0;
+
+                    for (let i = 0; i < files.length; i++) {
+                        if (progressEl.isCancelled()) {
+                            throw new Error('Download cancelled by user');
+                        }
+
+                        const file = files[i];
+                        const relDir = file.relativePath.includes('/') ? file.relativePath.slice(0, file.relativePath.lastIndexOf('/')) : '';
+                        const dirHandle = await getOrCreateSubDirHandle(relDir);
+
+                        progressEl.update({
+                            text: `[${i + 1}/${totalFiles}] ${file.relativePath}`,
+                            subtext: `${formatSize(downloadedBytes)} of ${formatSize(totalBytes)}`,
+                            progress: totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : Math.round((i / totalFiles) * 100)
+                        });
+
+                        const fileHandle = await dirHandle.getFileHandle(file.filename, { create: true });
+                        const writable = await fileHandle.createWritable();
+
+                        const fileRes = await fetch(file.streamUrl);
+                        if (!fileRes.ok) {
+                            await writable.abort();
+                            throw new Error(`Failed to download ${file.filename}: HTTP ${fileRes.status}`);
+                        }
+
+                        if (fileRes.body && window.ReadableStream) {
+                            const reader = fileRes.body.getReader();
+                            let fileLoaded = 0;
+                            while (true) {
+                                if (progressEl.isCancelled()) {
+                                    reader.cancel();
+                                    await writable.abort();
+                                    throw new Error('Download cancelled by user');
+                                }
+                                const { done, value } = await reader.read();
+                                if (done) break;
+                                await writable.write(value);
+                                fileLoaded += value.length;
+                                downloadedBytes += value.length;
+
+                                progressEl.update({
+                                    text: `[${i + 1}/${totalFiles}] ${file.relativePath}`,
+                                    subtext: `${formatSize(downloadedBytes)} of ${formatSize(totalBytes)}`,
+                                    progress: totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : Math.round((i / totalFiles) * 100)
+                                });
+                            }
+                            await writable.close();
+                        } else {
+                            const blob = await fileRes.blob();
+                            await writable.write(blob);
+                            await writable.close();
+                            downloadedBytes += (file.size || blob.size);
+                        }
+
+                        downloadedCount++;
+                    }
+
+                    progressEl.update({
+                        text: `Folder "${targetFolderName}" saved successfully!`,
+                        subtext: `Downloaded ${downloadedCount} files (${formatSize(downloadedBytes)})`,
+                        progress: 100,
+                        done: true
+                    });
+
+                    setTimeout(() => progressEl.close(), 3000);
+
+                } catch (err) {
+                    console.error('[FolderDownload] Error:', err);
+                    progressEl.update({
+                        text: 'Download error: ' + err.message,
+                        error: true
+                    });
+                    setTimeout(() => progressEl.close(), 4000);
+                }
+            };
+
+            window.downloadFolderDirectly = window.openFolderDownloadModal;
+
+            window.downloadCurrentShareFolder = function() {
+                const title = (lastFolderData && lastFolderData.folder && lastFolderData.folder.name) ? lastFolderData.folder.name : 'SharedFolder';
+                window.openFolderDownloadModal(currentTargetSubId, title);
+            };
+
+            const shareDlModal = document.getElementById('folderDownloadModal');
+            if (shareDlModal) {
+                shareDlModal.addEventListener('click', (e) => {
+                    if (e.target === shareDlModal) window.closeFolderDownloadModal();
+                });
             }
 
             // Глобальная функция для вызова из онкликов крошек или карточек
@@ -444,16 +1237,20 @@
 
             // Обработка кнопки "Назад" в браузере (History API)
             window.addEventListener('popstate', (e) => {
-                if (e.state) {
-                    loadFolder(e.state.subId);
+                let targetSub = null;
+                if (e.state && e.state.subId !== undefined) {
+                    targetSub = e.state.subId;
                 } else {
                     const u = new URLSearchParams(window.location.search);
-                    loadFolder(u.get('subfolder_id'));
+                    targetSub = u.get('subfolder_id') || null;
                 }
+                const saved = getSavedShareScroll(targetSub);
+                loadFolder(targetSub, false, saved !== null ? saved : 0);
             });
 
             // Инициальная загрузка
-            loadFolder(subfolderId);
+            const initialSaved = getSavedShareScroll(currentTargetSubId);
+            loadFolder(currentTargetSubId, false, initialSaved !== null ? initialSaved : 0);
         })();
     </script>
 </body>

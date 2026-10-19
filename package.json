@@ -4,9 +4,11 @@
   "description": "Простой сервер для хранения и воспроизведения видео файлов",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "generate-thumbnails": "node generate-thumbnails.js"
   },
   "dependencies": {
+    "archiver": "^8.0.0",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^11.0.0",
     "cookie-parser": "^1.4.7",

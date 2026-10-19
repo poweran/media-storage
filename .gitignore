@@ -4,3 +4,7 @@
 /media.db-shm
 /media.db-wal
 /media.db
+.aider*
+.auth_secret
+/temp_uploads
+*.log

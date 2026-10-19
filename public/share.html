@@ -5,10 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File — Provideo Media Holding</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/fonts/fonts.css">
+    <link rel="stylesheet" href="/style.css?v=1.3.2">
     <style>
         .nav-arrow {
             display: none;
@@ -71,13 +69,40 @@
 
 <body>
     <div class="app share-page">
-        <header class="share-header">
-            <div class="logo">
-                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="23 7 16 12 23 17 23 7" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                </svg>
-                <span class="logo-text">Provideo Media Holding</span>
+        <!-- Header -->
+        <header class="header">
+            <div class="header-inner">
+                <a id="shareLogoLink" href="/" class="logo" style="text-decoration: none; color: inherit; cursor: pointer;">
+                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="23 7 16 12 23 17 23 7" />
+                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                    </svg>
+                    <span class="logo-text" id="logoText">Provideo Media Holding</span>
+                </a>
+                <div class="header-stats" id="headerStats"></div>
+                <div class="header-right">
+                    <div class="user-profile" id="userProfile" style="display: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <span id="usernameDisplay"></span>
+                    </div>
+                    <button class="icon-btn" id="logoutBtn" onclick="logout()" title="Logout" style="display: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>
+                    </button>
+                    <a href="/secure-admin" class="icon-btn" id="loginBtn" title="Login" style="display: none; text-decoration: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                            <polyline points="10 17 15 12 10 7" />
+                            <line x1="15" y1="12" x2="3" y2="12" />
+                        </svg>
+                    </a>
+                </div>
             </div>
         </header>
 
@@ -96,7 +121,7 @@
 
         <main class="share-main">
             <div class="share-player-wrap" style="position: relative;">
-                <video id="shareVideo" controls autoplay style="display: none;">
+                <video id="shareVideo" controls autoplay playsinline webkit-playsinline style="display: none; width: 100%; height: 100%; max-height: 80vh; object-fit: contain;">
                     Your browser does not support video playback.
                 </video>
                 <img id="shareImage" style="display: none; width: 100%; height: 100%; object-fit: contain;" alt="Photo">
@@ -130,7 +155,7 @@
         </main>
     </div>
 
-    <script src="/app.js"></script>
+    <script src="/app.js?v=1.4.1"></script>
     <script>
         function formatSize(bytes) {
             if (bytes < 1024) return bytes + ' B';
@@ -158,7 +183,17 @@
                 const videoId = pathParts[5];
                 apiUrl = `/api/share/folder/${folderShareId}/video/${videoId}`;
                 streamUrl = `/api/share/folder/${folderShareId}/video/${videoId}/stream`;
-                qualitiesUrl = `/api/share/folder/${folderShareId}/video/${videoId}/qualities`;
+                const logoLink = document.getElementById('shareLogoLink');
+                if (logoLink) {
+                    const lastShareUrl = sessionStorage.getItem('last_share_url');
+                    logoLink.href = lastShareUrl || `/s/f/${folderShareId}`;
+                    logoLink.addEventListener('click', (e) => {
+                        if (window.history.length > 1 && document.referrer && document.referrer.includes(window.location.host)) {
+                            e.preventDefault();
+                            window.history.back();
+                        }
+                    });
+                }
             } else {
                 const shareId = pathParts[pathParts.length - 1];
                 apiUrl = '/api/share/' + shareId;
@@ -183,7 +218,29 @@
                         document.getElementById('shareVideo').style.display = 'none';
                         const img = document.getElementById('shareImage');
                         img.style.display = 'block';
-                        img.src = streamUrl;
+
+                        const thumbUrl = isFolderVideo
+                            ? `/api/share/folder/${folderShareId}/video/${video.id}/thumbnail`
+                            : `/api/share/${pathParts[pathParts.length - 1]}/thumbnail`;
+
+                        // Сначала мгновенно отображаем оптимизированное превью
+                        img.src = thumbUrl;
+
+                        // В фоне подгружаем исходник высокого разрешения
+                        const highRes = new Image();
+                        highRes.src = streamUrl;
+                        highRes.onload = () => {
+                            img.src = streamUrl;
+                        };
+                        highRes.onerror = () => {
+                            console.warn('Could not load original resolution, keeping preview');
+                        };
+
+                        img.onerror = () => {
+                            if (img.src !== thumbUrl) {
+                                img.src = thumbUrl;
+                            }
+                        };
                     } else {
                         document.getElementById('shareImage').style.display = 'none';
                         const vid = document.getElementById('shareVideo');
@@ -257,7 +314,9 @@
                     document.getElementById('shareMeta').innerHTML =
                         '<span>' + formatSize(video.size) + '</span> • <span>' +
                         new Date(video.created_at).toLocaleDateString('en-US') + '</span>';
-                    document.getElementById('downloadBtn').href = streamUrl;
+                    const downloadEl = document.getElementById('downloadBtn');
+                    downloadEl.href = streamUrl + (streamUrl.includes('?') ? '&' : '?') + 'download=1';
+                    downloadEl.setAttribute('download', video.filename);
                     document.title = video.filename + ' — ' + (window.siteTitle || 'Provideo Media Holding');
 
                     // ========== Навигация по свайпу / стрелкам ==========
@@ -311,39 +370,99 @@
                         }
                     }
 
-                    const popup = document.createElement('div');
-                    popup.innerHTML = `
-                        <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
-                            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; max-width: 600px; width: 100%; padding: 32px; text-align: center; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                                <h2 style="margin-top: 0; margin-bottom: 16px; color: var(--text-primary);">ՈՒՇԱԴՐՈՒԹՅՈՒՆ / ATTENTION</h2>
-                                <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px; color: var(--text-secondary);">
-                                    Խնդրում ենք Ձեր ֆայլերը ներբեռնել մինչև <strong>${new Date(video.share_expires_at).toLocaleDateString('hy-AM')}</strong>, քանի որ նշված ժամկետի ավարտից հետո հղումը այլևս հասանելի չի լինի։<br>Կրկին շնորհակալություն համագործակցության համար։<br><br>
-                                    Please download your files before <strong>${new Date(video.share_expires_at).toLocaleDateString('en-US')}</strong>, as the link will no longer be available after this period.<br>Thank you again for your cooperation.
-                                </p>
-                                <button onclick="this.parentElement.parentElement.remove()" style="padding: 12px 32px; font-size: 16px; font-weight: 600; border-radius: 8px; border: none; background: #646cff; color: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#535bf2'" onmouseout="this.style.background='#646cff'">OK</button>
+                    const currentShareId = folderShareId || pathParts[pathParts.length - 1];
+                    const isAttentionHidden = localStorage.getItem('dont_show_attention_' + currentShareId) === 'true';
+
+                    if (video.share_expires_at && !isAttentionHidden) {
+                        const popup = document.createElement('div');
+                        popup.innerHTML = `
+                            <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 16px; box-sizing: border-box; backdrop-filter: blur(4px);">
+                                <div style="background: var(--bg-secondary, #1e1e24); border: 1px solid var(--border-color, #333); border-radius: 14px; max-width: 560px; width: 100%; max-height: calc(100dvh - 32px); max-height: calc(100vh - 32px); display: flex; flex-direction: column; box-shadow: 0 12px 36px rgba(0,0,0,0.6); overflow: hidden; box-sizing: border-box;">
+                                    <div style="padding: 22px 18px 14px; overflow-y: auto; text-align: center; -webkit-overflow-scrolling: touch; flex: 1 1 auto;">
+                                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(99, 102, 241, 0.15); color: #818cf8; margin-bottom: 12px;">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                        </div>
+                                        <h2 style="margin-top: 0; margin-bottom: 12px; font-size: 17px; font-weight: 700; color: var(--text-primary, #fff); line-height: 1.3;">ՈՒՇԱԴՐՈՒԹՅՈՒՆ / ATTENTION</h2>
+                                        <div style="font-size: 13.5px; line-height: 1.6; margin-bottom: 8px; color: var(--text-secondary, #aaa); text-align: left; background: rgba(255,255,255,0.03); padding: 14px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                                            <p style="margin: 0 0 10px 0;">
+                                                Խնդրում ենք Ձեր ֆայլերը ներբեռնել մինչև <strong style="color: var(--text-primary, #fff);">${new Date(video.share_expires_at).toLocaleDateString('hy-AM')}</strong>, քանի որ նշված ժամկետի ավարտից հետո հղումը այլևս հասանելի չի լինի։<br>Կրկին շնորհակալություն համագործակցության համար։
+                                            </p>
+                                            <div style="border-top: 1px solid rgba(255,255,255,0.08); margin: 10px 0;"></div>
+                                            <p style="margin: 0;">
+                                                Please download your files before <strong style="color: var(--text-primary, #fff);">${new Date(video.share_expires_at).toLocaleDateString('en-US')}</strong>, as the link will no longer be available after this period.<br>Thank you again for your cooperation.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div style="padding: 12px 18px 18px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; align-items: center; gap: 12px; flex-shrink: 0; background: var(--bg-secondary, #1e1e24);">
+                                        <label style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: var(--text-secondary, #aaa); cursor: pointer; user-select: none;">
+                                            <input type="checkbox" id="dontShowAgainCheck" style="width: 16px; height: 16px; cursor: pointer; accent-color: #646cff;">
+                                            <span>Այլևս ցույց չտալ / Don't show again</span>
+                                        </label>
+                                        <button id="attentionOkBtn" style="min-width: 160px; width: 100%; max-width: 240px; padding: 12px 24px; font-size: 15px; font-weight: 600; border-radius: 8px; border: none; background: #646cff; color: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#535bf2'" onmouseout="this.style.background='#646cff'">OK</button>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    `;
-                    document.body.appendChild(popup);
+                        `;
+
+                        const okBtn = popup.querySelector('#attentionOkBtn');
+                        const closePopup = () => {
+                            const chk = popup.querySelector('#dontShowAgainCheck');
+                            if (chk && chk.checked) {
+                                try {
+                                    localStorage.setItem('dont_show_attention_' + currentShareId, 'true');
+                                } catch (e) {}
+                            }
+                            popup.remove();
+                        };
+                        okBtn.addEventListener('click', closePopup);
+                        popup.addEventListener('click', (e) => {
+                            if (e.target === popup.firstElementChild) {
+                                closePopup();
+                            }
+                        });
+                        document.body.appendChild(popup);
+                    }
                 })
                 .catch(err => {
                     if (err.message === 'Link expired') {
                         document.querySelector('.share-main').innerHTML = `
-                        <div class="share-error" style="max-width: 800px; margin: 0 auto; text-align: center; padding: 40px 20px;">
-                            <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px; color: var(--text-primary); text-align: left;">
-                                Հարգելի այցելու,<br><br>
-                                Տեղեկացնում ենք, որ տվյալ հղման գործողության նախատեսված ժամկետն ավարտվել է և այն ներկայումս հասանելի չէ։<br>
-                                Եթե դեռևս չեք հասցրել ներբեռնել Ձեր ֆայլերը, խնդրում ենք նկատի ունենալ, որ հղման ժամկետի ավարտից հետո 15 օրվա ընթացքում կարող եք ներբեռնել դրանք։<br>
-                                Ուստի խնդրում ենք կապ հաստատել մեզ հետ։<br><br>
-                                Հարգանքներով՝<br>
-                                PROVIDEO MEDIA HOLDING<br><br>
-                                Dear Visitor,<br><br>
-                                We would like to inform you that the provided link has expired and is currently unavailable.<br>
-                                If you have not yet managed to download your files, please note that they remain available for download for 15 days following the link’s expiration.<br>
-                                Therefore, we kindly ask you to contact us.<br><br>
-                                Sincerely,<br>
-                                PROVIDEO MEDIA HOLDING
-                            </p>
+                        <div style="text-align: left; margin: 0 auto; max-width: 650px; padding: 24px 16px;">
+                            <div style="background: var(--bg-secondary, #1e1e24); border: 1px solid var(--border-color, #333); border-radius: 14px; padding: 24px 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                    <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: center; color: var(--danger, #ef4444); flex-shrink: 0;">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                            <circle cx="12" cy="12" r="10"></circle>
+                                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary, #fff);">Հղման ժամկետն ավարտվել է / Link Expired</h3>
+                                    </div>
+                                </div>
+                                <div style="font-size: 14px; line-height: 1.6; color: var(--text-secondary, #aaa);">
+                                    <p style="margin: 0 0 12px 0;">
+                                        Հարգելի այցելու,<br><br>
+                                        Տեղեկացնում ենք, որ տվյալ հղման գործողության նախատեսված ժամկետն ավարտվել է և այն ներկայումս հասանելի չէ։<br>
+                                        Եթե դեռևս չեք հասցրել ներբեռնել Ձեր ֆայլերը, խնդրում ենք նկատի ունենալ, որ հղման ժամկետի ավարտից հետո 15 օրվա ընթացքում կարող եք ներբեռնել դրանք։<br>
+                                        Ուստի խնդրում ենք կապ հաստատել մեզ հետ։<br><br>
+                                        <span style="color: var(--text-primary, #fff); font-weight: 600;">Հարգանքներով՝<br>PROVIDEO MEDIA HOLDING</span>
+                                    </p>
+                                    <div style="border-top: 1px solid rgba(255,255,255,0.08); margin: 16px 0;"></div>
+                                    <p style="margin: 0;">
+                                        Dear Visitor,<br><br>
+                                        We would like to inform you that the provided link has expired and is currently unavailable.<br>
+                                        If you have not yet managed to download your files, please note that they remain available for download for 15 days following the link's expiration.<br>
+                                        Therefore, we kindly ask you to contact us.<br><br>
+                                        <span style="color: var(--text-primary, #fff); font-weight: 600;">Sincerely,<br>PROVIDEO MEDIA HOLDING</span>
+                                    </p>
+                                </div>
+                                <div style="margin-top: 22px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: center;">
+                                    <button onclick="if (window.history.length > 1 && document.referrer) { window.history.back(); } else { window.location.href = '/'; }" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; max-width: 240px; padding: 12px 24px; font-size: 15px; font-weight: 600; border-radius: 8px; border: none; background: #646cff; color: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#535bf2'" onmouseout="this.style.background='#646cff'">
+                                        Փակել / OK
+                                    </button>
+                                </div>
+                            </div>
                         </div>`;
                     } else {
                         document.querySelector('.share-main').innerHTML =

@@ -2,8 +2,16 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const storagePath = process.env.STORAGE_PATH ? path.resolve(process.env.STORAGE_PATH) : __dirname;
-if (process.env.STORAGE_PATH && !fs.existsSync(storagePath)) {
+const rawStoragePath = process.env.STORAGE_PATH || process.env.MEDIA_STORAGE_PATH || __dirname;
+const resolvedPath = path.resolve(rawStoragePath);
+let storagePath = resolvedPath;
+if (path.basename(resolvedPath) === 'uploads') {
+  storagePath = fs.existsSync(path.join(resolvedPath, 'media.db'))
+    ? resolvedPath
+    : path.dirname(resolvedPath);
+}
+
+if (!fs.existsSync(storagePath)) {
   fs.mkdirSync(storagePath, { recursive: true });
 }
 
@@ -13,6 +21,15 @@ const db = new Database(dbPath);
 // Включаем WAL и внешние ключи для лучшей производительности и консистентности
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+
+// Регистрируем функцию для регистронезависимого поиска с поддержкой UTF-8 и мульти-слов
+db.function('contains_utf8', (str, search) => {
+  if (!str || !search) return 0;
+  const s = String(str).toLowerCase();
+  const tokens = String(search).toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return 0;
+  return tokens.every(tok => s.includes(tok)) ? 1 : 0;
+});
 
 // Создаём таблицу пользователей
 db.exec(`
@@ -36,6 +53,7 @@ db.exec(`
     share_expires_at DATETIME,
     is_shared INTEGER DEFAULT 0,
     uploader_username TEXT,
+    folder_id INTEGER DEFAULT NULL REFERENCES folders(id) ON DELETE CASCADE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);
@@ -54,25 +72,6 @@ db.exec(`
     FOREIGN KEY(parent_id) REFERENCES folders(id) ON DELETE CASCADE
   )
 `);
-
-// Создаём таблицу настроек
-db.exec(`
-  CREATE TABLE IF NOT EXISTS settings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    key TEXT NOT NULL UNIQUE,
-    value TEXT NOT NULL
-  )
-`);
-
-// Настройки по умолчанию
-try {
-  const titleSetting = db.prepare("SELECT value FROM settings WHERE key = 'site_title'").get();
-  if (!titleSetting) {
-    db.prepare("INSERT INTO settings (key, value) VALUES ('site_title', 'Provideo Media Holding')").run();
-  }
-} catch (err) {
-  console.error('Ошибка инициализации настроек:', err);
-}
 
 // Миграция: добавляем колонку uploader_username, если её нет
 try {
@@ -163,4 +162,33 @@ try {
   console.error('Ошибка при миграции БД (is_shared в folders):', err);
 }
 
+// Создаём таблицу настроек
+db.exec(`
+  CREATE TABLE IF NOT EXISTS settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL UNIQUE,
+    value TEXT NOT NULL
+  )
+`);
+
+// Настройки по умолчанию
+try {
+  const titleSetting = db.prepare("SELECT value FROM settings WHERE key = 'site_title'").get();
+  if (!titleSetting) {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('site_title', 'Provideo Media Holding')").run();
+  }
+} catch (err) {
+  console.error('Ошибка инициализации настроек:', err);
+}
+
+// Индексы для ускорения работы с иерархией папок и файлами
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_folders_parent_id ON folders(parent_id);
+  CREATE INDEX IF NOT EXISTS idx_folders_uploader_parent ON folders(uploader_username, parent_id);
+  CREATE INDEX IF NOT EXISTS idx_folders_name ON folders(name);
+  CREATE INDEX IF NOT EXISTS idx_videos_folder_id ON videos(folder_id);
+  CREATE INDEX IF NOT EXISTS idx_videos_stored_name ON videos(stored_name);
+`);
+
 module.exports = db;
+

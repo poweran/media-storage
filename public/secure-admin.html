@@ -5,10 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login — Provideo Media Holding</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/fonts/fonts.css">
+    <link rel="stylesheet" href="/style.css?v=1.3.2">
     <link rel="icon" type="image/png" sizes="16x16"
         href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAAsTAAALEwEAmpwYAAABOUlEQVR4nN2VTUoDQRCFv+AfWRiXnsAfUK8gcaMRRNQLKbqKMR7AuNbcx7jRuFJBBV1p3KkUvIGy03TGATfzoKDn1euqrpqmGsqOSaCi9QrQB26BZXEVaQphD+hoPQM8At+yB6Am3zmw+5fAdqpTBVoXd+SCZ3YgX0PfbVdtEm1teAXGZC+RBE/yjQNv4lqjgm+7AJfi1iLBM6tL03Wctbak6Ablz4m/TrSoJ81CwGft/YW7QDQr3l/P0MyHtJ63WEMYBKIp8Z+JBOZDWs9brCF8FEgwkKYa8O//3aJ+np88L76XSHAlzWLAX1BaNICv4C7XEy1ajbR3a1SSVmTYPeccds08VdjIPdGGDXGHkQT78m2q6uO84zrDDnCmdS24rvfAtHwdTeFCmHCnsmfSnssbYMlVa5oS4wffWayyDUi0NgAAAABJRU5ErkJggg==">
     <style>
@@ -143,13 +141,13 @@
 <body>
     <div class="app login-page">
         <div class="login-card">
-            <div class="login-logo">
+            <a href="/" class="login-logo" style="text-decoration: none; color: inherit; cursor: pointer;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polygon points="23 7 16 12 23 17 23 7" />
                     <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                 </svg>
                 <span>Provideo Media Holding</span>
-            </div>
+            </a>
 
             <div class="login-tabs">
                 <button class="login-tab active" id="tabLogin" style="cursor: default;">Login</button>
@@ -169,8 +167,9 @@
             </form>
         </div>
     </div>
-    <script src="/app.js"></script>
+    <script src="/app.js?v=1.4.1"></script>
     <script>
+        localStorage.removeItem('auth_token');
         const errorEl = document.getElementById('loginError');
 
         document.getElementById('authForm').addEventListener('submit', async (e) => {
@@ -189,7 +188,12 @@
                 });
 
                 if (res.ok) {
-                    const redirect = new URLSearchParams(window.location.search).get('redirect') || '/';
+                    const data = await res.json().catch(() => ({}));
+                    if (data && data.token) {
+                        localStorage.setItem('auth_token', data.token);
+                    }
+                    let redirect = new URLSearchParams(window.location.search).get('redirect') || '/';
+                    if (redirect.includes('secure-admin')) redirect = '/';
                     window.location.href = redirect;
                 } else {
                     const data = await res.json();

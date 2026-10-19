@@ -3,13 +3,14 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <meta name="theme-color" content="#030014">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Provideo Media Holding</title>
   <meta name="description" content="Simple video and photo storage with online viewing and public links">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/fonts/fonts.css">
+  <link rel="stylesheet" href="/style.css?v=1.3.3">
   <link rel="icon" type="image/png" sizes="16x16"
     href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAAsTAAALEwEAmpwYAAABOUlEQVR4nN2VTUoDQRCFv+AfWRiXnsAfUK8gcaMRRNQLKbqKMR7AuNbcx7jRuFJBBV1p3KkUvIGy03TGATfzoKDn1euqrpqmGsqOSaCi9QrQB26BZXEVaQphD+hoPQM8At+yB6Am3zmw+5fAdqpTBVoXd+SCZ3YgX0PfbVdtEm1teAXGZC+RBE/yjQNv4lqjgm+7AJfi1iLBM6tL03Wctbak6Ablz4m/TrSoJ81CwGft/YW7QDQr3l/P0MyHtJ63WEMYBKIp8Z+JBOZDWs9brCF8FEgwkKYa8O//3aJ+np88L76XSHAlzWLAX1BaNICv4C7XEy1ajbR3a1SSVmTYPeccds08VdjIPdGGDXGHkQT78m2q6uO84zrDDnCmdS24rvfAtHwdTeFCmHCnsmfSnssbYMlVa5oS4wffWayyDUi0NgAAAABJRU5ErkJggg==">
 </head>
@@ -19,47 +20,53 @@
     <!-- Header -->
     <header class="header">
       <div class="header-inner">
-        <div class="logo">
+        <a href="/" class="logo" onclick="navigateTo(null, 'Root'); return false;">
           <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polygon points="23 7 16 12 23 17 23 7" />
             <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
           </svg>
-          <a href="/" style="text-decoration: none;" class="logo-text">Provideo Media Holding</a>
-        </div>
+          <span class="logo-text">Provideo Media Holding</span>
+        </a>
         <div class="header-stats" id="headerStats"></div>
-        <div class="user-profile" id="userProfile"
-          style="margin-left: 20px; font-weight: 500; display: flex; align-items: center; gap: 8px; color: var(--text-secondary);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
-          </svg>
-          <span id="usernameDisplay">...</span>
+        <div class="header-right">
+          <div class="user-profile" id="userProfile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span id="usernameDisplay">...</span>
+          </div>
+          <button class="icon-btn" id="addUserBtn" onclick="openAddUserModal()" title="Add User" style="display: none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="8.5" cy="7" r="4"></circle>
+              <line x1="20" y1="8" x2="20" y2="14"></line>
+              <line x1="23" y1="11" x2="17" y2="11"></line>
+            </svg>
+          </button>
+          <button class="icon-btn" id="settingsBtn" onclick="openSettingsModal()" title="Settings" style="display: none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+              </path>
+            </svg>
+          </button>
+          <button class="icon-btn" id="logoutBtn" onclick="logout()" title="Logout" style="display: none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
+          <a href="/secure-admin" class="icon-btn" id="loginBtn" title="Login" style="display: none; text-decoration: none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+              <polyline points="10 17 15 12 10 7" />
+              <line x1="15" y1="12" x2="3" y2="12" />
+            </svg>
+          </a>
         </div>
-        <button class="icon-btn" id="addUserBtn" onclick="openAddUserModal()" title="Add User"
-          style="margin-left: 12px; display: none;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-            <circle cx="8.5" cy="7" r="4"></circle>
-            <line x1="20" y1="8" x2="20" y2="14"></line>
-            <line x1="23" y1="11" x2="17" y2="11"></line>
-          </svg>
-        </button>
-        <button class="icon-btn" id="settingsBtn" onclick="openSettingsModal()" title="Settings"
-          style="margin-left: 12px; display: none;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path
-              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
-            </path>
-          </svg>
-        </button>
-        <button class="icon-btn" onclick="logout()" title="Logout" style="margin-left: 12px;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
-        </button>
       </div>
     </header>
 
@@ -73,27 +80,27 @@
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
         </div>
-        <p class="upload-text">Drag and drop video and photo files here</p>
+        <p class="upload-text">Drag and drop video and photo files or entire folders here</p>
         <p class="upload-subtext">or</p>
         <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-          <label class="upload-btn" for="fileInput">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <div class="upload-btn" id="selectFilesBtn" style="position: relative; overflow: hidden; cursor: pointer;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="pointer-events: none;">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
-            Select files
-          </label>
-          <label class="upload-btn" for="folderInputSelect" style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border);">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <span style="pointer-events: none;">Select files</span>
+            <input type="file" id="fileInput" multiple accept="video/*,image/*" title="" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;">
+          </div>
+          <div class="upload-btn" id="selectFolderBtn" style="position: relative; overflow: hidden; cursor: pointer; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="pointer-events: none;">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
             </svg>
-            Select folder
-          </label>
+            <span style="pointer-events: none;">Select folder</span>
+            <input type="file" id="folderInputSelect" webkitdirectory mozdirectory directory title="" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;">
+          </div>
         </div>
-        <input type="file" id="fileInput" multiple accept="video/*,image/*" hidden>
-        <input type="file" id="folderInputSelect" webkitdirectory directory hidden>
-        <p class="upload-hint" id="uploadHint">Support for massive files • Up to 50 files at once</p>
+        <p class="upload-hint" id="uploadHint">Support for nested folders • Preserves original structure • Massive files</p>
       </div>
 
       <div id="resumeHint" style="display: none; margin-top: 16px;"></div>
@@ -113,16 +120,69 @@
     <!-- Video Grid -->
     <section class="videos-section">
       <div class="videos-header">
-        <div class="videos-title-area" style="display: flex; flex-direction: column; gap: 4px;">
-          <h2 class="videos-title" style="margin-bottom: 0;">My files</h2>
-          <div class="breadcrumbs" id="breadcrumbs">
-            <span class="crumb active" onclick="navigateTo(null, 'Root')">Root</span>
-          </div>
+        <div class="breadcrumbs" id="breadcrumbs">
+          <span class="crumb active" onclick="navigateTo(null, 'Root')">Root</span>
         </div>
-        <div class="videos-actions" style="display: flex; align-items: center; gap: 16px;">
-          <input type="search" id="searchInput" name="q" placeholder="Search files & folders" autocomplete="off"
-            style="padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); outline: none; font-size: 14px; width: 250px;">
-          <button class="icon-btn" onclick="openFolderModal()" title="Create Folder">
+        <div class="videos-actions">
+          <div class="search-input-wrapper">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="search" id="searchInput" name="q" placeholder="Search files & folders" autocomplete="off">
+          </div>
+          <div class="sort-controls-wrapper">
+            <div class="custom-dropdown" id="sortDropdown">
+              <button type="button" class="custom-dropdown-btn" id="sortDropdownBtn" onclick="toggleSortDropdown(event)" aria-haspopup="true" aria-expanded="false" title="Sort by">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="sort-icon">
+                  <line x1="4" y1="6" x2="16" y2="6"/>
+                  <line x1="4" y1="12" x2="11" y2="12"/>
+                  <line x1="4" y1="18" x2="7" y2="18"/>
+                </svg>
+                <span class="custom-dropdown-label" id="sortDropdownLabel">Date</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" class="sort-arrow">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+              <div class="custom-dropdown-menu" id="sortDropdownMenu">
+                <button type="button" class="custom-dropdown-item active" data-value="date" onclick="selectSortOption('date', 'Date')">
+                  <span>Date</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" class="check-icon"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </button>
+                <button type="button" class="custom-dropdown-item" data-value="name" onclick="selectSortOption('name', 'Name')">
+                  <span>Name</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" class="check-icon"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </button>
+                <button type="button" class="custom-dropdown-item" data-value="size" onclick="selectSortOption('size', 'Size')">
+                  <span>Size</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" class="check-icon"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </button>
+                <button type="button" class="custom-dropdown-item" data-value="type" onclick="selectSortOption('type', 'Type')">
+                  <span>Type</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" class="check-icon"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </button>
+                <button type="button" class="custom-dropdown-item" data-value="uploader" onclick="selectSortOption('uploader', 'Owner')">
+                  <span>Owner</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" class="check-icon"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </button>
+              </div>
+            </div>
+            <button id="sortOrderBtn" class="icon-btn" title="Sort Order" onclick="toggleSortOrder()">
+              <svg id="sortOrderIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                <path d="M12 5v14M19 12l-7 7-7-7"/>
+              </svg>
+            </button>
+            <button id="foldersFirstBtn" class="toggle-chip active" title="Keep folders at top" onclick="toggleFoldersFirst()" type="button" aria-pressed="true">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" class="folder-chip-icon">
+                <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+              </svg>
+              <span>Folders top</span>
+              <span class="toggle-switch-track">
+                <span class="toggle-switch-thumb"></span>
+              </span>
+            </button>
+          </div>
+          <button class="icon-btn" id="createFolderTopBtn" onclick="openFolderModal()" title="Create Folder">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
               <line x1="12" y1="11" x2="12" y2="17"></line>
@@ -130,9 +190,20 @@
             </svg>
             New Folder
           </button>
-          <div class="videos-count" id="videosCount"></div>
+          <button id="downloadCurrentFolderBtn" class="icon-btn" title="Download folder" style="display: none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download folder
+          </button>
         </div>
       </div>
+
+      <!-- Full-width stats bar -->
+      <div class="videos-count" id="videosCount"></div>
+
       <div class="videos-grid" id="videosGrid">
         <!-- Видео карточки рендерятся через JS -->
       </div>
@@ -207,7 +278,14 @@
         <input type="text" class="modal-input" id="siteTitleInput" placeholder="Site Title" autocomplete="off"
           style="margin-bottom: 12px; width: 100%; box-sizing: border-box; padding: 12px 16px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 15px;">
       </div>
-      <div class="modal-actions" style="margin-top: 16px;">
+      <div class="login-field" style="text-align: left; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <label for="debugConsoleCheckbox" style="display: block; font-size: 13px; color: var(--text-primary); font-weight: 500; cursor: pointer;">Debug Console</label>
+          <span style="font-size: 11px; color: var(--text-secondary);">Show floating debug panel for network & logs</span>
+        </div>
+        <input type="checkbox" id="debugConsoleCheckbox" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);">
+      </div>
+      <div class="modal-actions" style="margin-top: 18px;">
         <button class="modal-btn modal-btn-cancel" onclick="closeSettingsModal()">Cancel</button>
         <button class="modal-btn modal-btn-confirm" onclick="saveSettings()">Save</button>
       </div>
@@ -227,10 +305,61 @@
     </div>
   </div>
 
+  <!-- Download Folder Options Modal -->
+  <div class="modal-overlay" id="folderDownloadModal" style="display: none;">
+    <div class="modal" style="max-width: 480px; text-align: left;">
+      <h3 style="margin-bottom: 8px;">Download Folder "<span id="dlModalFolderName"></span>"</h3>
+      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 18px; line-height: 1.5;">
+        Select your preferred download method:
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+        <button class="modal-option-btn primary" id="dlModalZipBtn" onclick="confirmDownloadZip()">
+          <div style="font-size: 24px; background: rgba(99, 102, 241, 0.2); width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">📦</div>
+          <div style="flex-grow: 1;">
+            <div style="font-weight: 600; font-size: 14px; color: #818cf8; margin-bottom: 2px;">Download ZIP Archive <span style="font-size: 11px; background: #6366f1; color: white; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: normal;">Recommended</span></div>
+            <div style="font-size: 12px; color: var(--text-secondary);">Single archive file. Works on all browsers & devices without security prompts.</div>
+          </div>
+        </button>
+
+        <button class="modal-option-btn" id="dlModalDirectBtn" onclick="confirmDownloadDirect()">
+          <div style="font-size: 24px; background: rgba(255, 255, 255, 0.05); width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">📁</div>
+          <div style="flex-grow: 1;">
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 2px;">Save as Unpacked Folder</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">Direct write to disk for Chrome/Edge. <span style="color: #f59e0b;">(Pick an empty non-system folder)</span></div>
+          </div>
+        </button>
+      </div>
+
+      <div class="modal-actions" style="justify-content: flex-end;">
+        <button class="modal-btn modal-btn-cancel" onclick="closeFolderDownloadModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Floating Action Bar -->
+  <div class="mobile-fab-container" id="mobileFab">
+    <button class="fab-btn fab-upload" onclick="document.getElementById('fileInput').click()" title="Upload Files">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </svg>
+      <span>Upload</span>
+    </button>
+    <button class="fab-btn fab-folder" onclick="openFolderModal()" title="New Folder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+        <line x1="12" y1="11" x2="12" y2="17"></line>
+        <line x1="9" y1="14" x2="15" y2="14"></line>
+      </svg>
+    </button>
+  </div>
+
   <!-- Toast notifications -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/app.js"></script>
+  <script src="/app.js?v=1.4.2"></script>
 </body>
 
 </html>
